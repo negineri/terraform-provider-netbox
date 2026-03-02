@@ -201,6 +201,7 @@ func (p *netboxProvider) DataSources(_ context.Context) []func() datasource.Data
 func (p *netboxProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewAvailableIpResource,
+		NewPrefixResource,
 	}
 }
 
