@@ -8,11 +8,14 @@ import (
 
 	"terraform-provider-netbox/internal/client"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -30,6 +33,7 @@ type availableIpResource struct {
 
 type availableIpResourceModel struct {
 	PrefixId    types.Int64  `tfsdk:"prefix_id"`
+	IpRangeId   types.Int64  `tfsdk:"ip_range_id"`
 	Status      types.String `tfsdk:"status"`
 	Description types.String `tfsdk:"description"`
 	Id          types.Int64  `tfsdk:"id"`
@@ -45,8 +49,21 @@ func (r *availableIpResource) Schema(_ context.Context, _ resource.SchemaRequest
 		MarkdownDescription: "Allocates the next available IP address from a given prefix.",
 		Attributes: map[string]schema.Attribute{
 			"prefix_id": schema.Int64Attribute{
-				MarkdownDescription: "The ID of the prefix to allocate the IP from.",
-				Required:            true,
+				MarkdownDescription: "The ID of the prefix to allocate the IP from. Exactly one of prefix_id or ip_range_id must be provided.",
+				Optional:            true,
+				Validators: []validator.Int64{
+					int64validator.ExactlyOneOf(path.MatchRelative().AtParent().AtName("ip_range_id")),
+				},
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.RequiresReplace(),
+				},
+			},
+			"ip_range_id": schema.Int64Attribute{
+				MarkdownDescription: "The ID of the IP range to allocate the IP from. Exactly one of prefix_id or ip_range_id must be provided.",
+				Optional:            true,
+				Validators: []validator.Int64{
+					int64validator.ExactlyOneOf(path.MatchRelative().AtParent().AtName("prefix_id")),
+				},
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.RequiresReplace(),
 				},
@@ -119,7 +136,15 @@ func (r *availableIpResource) Create(ctx context.Context, req resource.CreateReq
 		}
 	}
 
-	path := fmt.Sprintf("api/ipam/prefixes/%d/available-ips/", plan.PrefixId.ValueInt64())
+	var path string
+	if !plan.PrefixId.IsNull() && !plan.PrefixId.IsUnknown() {
+		path = fmt.Sprintf("api/ipam/prefixes/%d/available-ips/", plan.PrefixId.ValueInt64())
+	} else if !plan.IpRangeId.IsNull() && !plan.IpRangeId.IsUnknown() {
+		path = fmt.Sprintf("api/ipam/ip-ranges/%d/available-ips/", plan.IpRangeId.ValueInt64())
+	} else {
+		resp.Diagnostics.AddError("Error creating IP address", "Either prefix_id or ip_range_id must be provided.")
+		return
+	}
 
 	// Set array payload wrapper required by Netbox available-ips endpoint
 	var finalPayload []byte
