@@ -199,7 +199,9 @@ func (p *netboxProvider) DataSources(_ context.Context) []func() datasource.Data
 
 // Resources はプロバイダーで実装されているリソースを定義します。
 func (p *netboxProvider) Resources(_ context.Context) []func() resource.Resource {
-	return nil
+	return []func() resource.Resource{
+		NewAvailableIpResource,
+	}
 }
 
 // netboxProviderModel maps provider schema data to a Go type.

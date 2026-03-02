@@ -92,3 +92,45 @@ func (c *NetboxClient) Get(ctx context.Context, path string) (*string, error) {
 
 	return &bodyString, nil
 }
+
+func (c *NetboxClient) Post(ctx context.Context, path string, body io.Reader) (*string, error) {
+	return c.doRequest(ctx, http.MethodPost, path, body)
+}
+
+func (c *NetboxClient) Patch(ctx context.Context, path string, body io.Reader) (*string, error) {
+	return c.doRequest(ctx, http.MethodPatch, path, body)
+}
+
+func (c *NetboxClient) Delete(ctx context.Context, path string) error {
+	_, err := c.doRequest(ctx, http.MethodDelete, path, nil)
+	return err
+}
+
+func (c *NetboxClient) doRequest(ctx context.Context, method, path string, body io.Reader) (*string, error) {
+	fullURL, err := url.JoinPath(c.baseURL, path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to construct full URL: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, fullURL, body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	bodyString := string(bodyBytes)
+	return &bodyString, nil
+}
