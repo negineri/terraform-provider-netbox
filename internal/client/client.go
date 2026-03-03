@@ -2,94 +2,105 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
 )
 
-// カスタムTransportの定義
-type NetboxTransport struct {
-	Token string
-	// ラップする元のTransport（実際の通信を行う部分）
-	Transport http.RoundTripper
-}
-
-func (t *NetboxTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	// 【鉄則】引数で渡された元のリクエストを直接書き換えてはいけないため、クローンを作成する
-	clonedReq := req.Clone(req.Context())
-
-	// トークンをヘッダーにセット（Bearer認証の例）
-	clonedReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", t.Token))
-
-	// TerraformプロバイダーではUser-Agentの指定も推奨されています
-	clonedReq.Header.Set("User-Agent", "terraform-provider-netbox/1.0.0")
-	clonedReq.Header.Set("Content-Type", "application/json")
-	clonedReq.Header.Set("Accept", "application/json")
-
-	// 元のTransportに処理を委譲（ここで実際の通信が行われる）
-	return t.Transport.RoundTrip(clonedReq)
-}
-
-// NetboxClient の定義
+// NetboxClient はリトライ対応の HTTP クライアントです。
 type NetboxClient struct {
-	httpClient *http.Client
-	baseURL    string
+	retryClient *retryablehttp.Client
+	baseURL     string
+	token       string
 }
 
-// NewNetboxClient はトークンを受け取り、認証付きのクライアントを生成する
+// NewNetboxClient はトークンを受け取り、認証付きのクライアントを生成します。
 func NewNetboxClient(serverURL string, keyV2 string, tokenV2 string) *NetboxClient {
-	retryClient := retryablehttp.NewClient()
-	retryClient.RetryMax = 5
-	retryClient.Logger = nil // TFのログ出力に任せる
+	rc := retryablehttp.NewClient()
+	rc.RetryMax = 5
+	rc.RetryWaitMin = 1 * time.Second
+	rc.RetryWaitMax = 60 * time.Second
+	rc.Logger = nil
+	// per-attempt タイムアウト。StandardClient を使わないためリトライ全体には影響しない。
+	rc.HTTPClient.Timeout = 30 * time.Second
 
-	standardClient := retryClient.StandardClient()
-	standardClient.Timeout = 10 * time.Second
-
-	// 2. Transportのラップ
-	// standardClientのデフォルトTransportを、自作のAuthTransportで包む
-	// 元のTransportがnilの場合は http.DefaultTransport を使うのが安全です
-	baseTransport := standardClient.Transport
-	if baseTransport == nil {
-		baseTransport = http.DefaultTransport
+	// 429 と接続タイムアウトもリトライ対象にする
+	rc.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
+		if err != nil {
+			var urlErr *url.Error
+			if errors.As(err, &urlErr) && urlErr.Timeout() {
+				return true, nil
+			}
+		}
+		if resp != nil && resp.StatusCode == http.StatusTooManyRequests {
+			return true, nil
+		}
+		return retryablehttp.DefaultRetryPolicy(ctx, resp, err)
 	}
 
-	standardClient.Transport = &NetboxTransport{
-		Token:     "nbt_" + keyV2 + "." + tokenV2,
-		Transport: baseTransport,
+	// 429 の場合は Retry-After ヘッダーがあればその値を待機時間として使用する
+	rc.Backoff = func(min, max time.Duration, attemptNum int, resp *http.Response) time.Duration {
+		if resp != nil && resp.StatusCode == http.StatusTooManyRequests {
+			if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
+				if seconds, err := strconv.Atoi(retryAfter); err == nil {
+					d := time.Duration(seconds) * time.Second
+					if d > max {
+						return max
+					}
+					if d > 0 {
+						return d
+					}
+				}
+			}
+			return max
+		}
+		return retryablehttp.LinearJitterBackoff(min, max, attemptNum, resp)
 	}
 
 	return &NetboxClient{
-		httpClient: standardClient,
-		baseURL:    serverURL,
+		retryClient: rc,
+		baseURL:     serverURL,
+		token:       "nbt_" + keyV2 + "." + tokenV2,
 	}
 }
 
-func (c *NetboxClient) Get(ctx context.Context, path string) (*string, error) {
+func (c *NetboxClient) newRequest(ctx context.Context, method, path string, body interface{}) (*retryablehttp.Request, error) {
 	fullURL, err := url.JoinPath(c.baseURL, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct full URL: %w", err)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL, nil)
+	req, err := retryablehttp.NewRequestWithContext(ctx, method, fullURL, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("User-Agent", "terraform-provider-netbox/1.0.0")
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	return req, nil
+}
 
-	resp, err := c.httpClient.Do(req)
+func (c *NetboxClient) Get(ctx context.Context, path string) (*string, error) {
+	req, err := c.newRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.retryClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-
 	defer resp.Body.Close()
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 	bodyString := string(bodyBytes)
-
 	return &bodyString, nil
 }
 
@@ -107,16 +118,11 @@ func (c *NetboxClient) Delete(ctx context.Context, path string) error {
 }
 
 func (c *NetboxClient) doRequest(ctx context.Context, method, path string, body io.Reader) (*string, error) {
-	fullURL, err := url.JoinPath(c.baseURL, path)
+	req, err := c.newRequest(ctx, method, path, body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to construct full URL: %w", err)
+		return nil, err
 	}
-	req, err := http.NewRequestWithContext(ctx, method, fullURL, body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.retryClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
