@@ -1,13 +1,4 @@
-terraform {
-  required_providers {
-    netbox = {
-      source = "hashicorp.com/edu/netbox"
-    }
-  }
-}
-
-provider "netbox" {}
-
+# This example demonstrates how to create a prefix and allocate an available IP address from it in Netbox using the terraform-provider-netbox.
 resource "netbox_prefix" "test" {
   prefix      = "10.0.0.0/24"
   status      = "active"

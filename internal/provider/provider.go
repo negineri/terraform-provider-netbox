@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package provider
 
 import (
@@ -46,14 +49,17 @@ func (p *netboxProvider) Schema(_ context.Context, _ provider.SchemaRequest, res
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"server_url": schema.StringAttribute{
-				Optional: true,
+				Description: "URL for Netbox API. May also be provided via NETBOX_SERVER_URL environment variable.",
+				Optional:    true,
 			},
 			"key_v2": schema.StringAttribute{
-				Optional: true,
+				Description: "API key for Netbox. May also be provided via NETBOX_KEY_V2 environment variable.",
+				Optional:    true,
 			},
 			"token_v2": schema.StringAttribute{
-				Optional:  true,
-				Sensitive: true,
+				Description: "API token for Netbox. May also be provided via NETBOX_TOKEN_V2 environment variable.",
+				Optional:    true,
+				Sensitive:   true,
 			},
 		},
 	}

@@ -1,13 +1,4 @@
-terraform {
-  required_providers {
-    netbox = {
-      source = "hashicorp.com/edu/netbox"
-    }
-  }
-}
-
-provider "netbox" {}
-
+# This example demonstrates how to create an IP address in Netbox using the terraform-provider-netbox.
 resource "netbox_ip_address" "test" {
   ip_address  = "10.10.10.10/24"
   status      = "active"
