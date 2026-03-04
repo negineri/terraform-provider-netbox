@@ -94,7 +94,8 @@ func TestPost(t *testing.T) {
 	if err := json.Unmarshal([]byte(*body), &result); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}
-	if result["id"].(float64) != 1 {
+	idVal, ok := result["id"].(float64)
+	if !ok || idVal != 1 {
 		t.Errorf("unexpected id: %v", result["id"])
 	}
 }
@@ -184,7 +185,7 @@ func TestGet_RequestHeaders(t *testing.T) {
 	}
 }
 
-// newFastRetryClient は短いリトライ待機時間を持つテスト用クライアントを生成する
+// newFastRetryClient は短いリトライ待機時間を持つテスト用クライアントを生成する。
 func newFastRetryClient(serverURL string) *NetboxClient {
 	c := NewNetboxClient(serverURL, "testkey", "testtoken")
 	c.retryClient.RetryWaitMin = 10 * time.Millisecond

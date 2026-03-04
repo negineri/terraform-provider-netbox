@@ -179,7 +179,12 @@ func (r *availableIpResource) Create(ctx context.Context, req resource.CreateReq
 			resp.Diagnostics.AddError("Error creating IP address", "Netbox returned an empty array")
 			return
 		}
-		createdIp = v[0].(map[string]interface{})
+		var ok bool
+		createdIp, ok = v[0].(map[string]interface{})
+		if !ok {
+			resp.Diagnostics.AddError("Error parsing create response", "Unexpected element type in array")
+			return
+		}
 	case map[string]interface{}:
 		createdIp = v
 	default:

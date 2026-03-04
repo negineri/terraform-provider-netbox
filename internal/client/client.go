@@ -48,22 +48,22 @@ func NewNetboxClient(serverURL string, keyV2 string, tokenV2 string) *NetboxClie
 	}
 
 	// 429 の場合は Retry-After ヘッダーがあればその値を待機時間として使用する
-	rc.Backoff = func(min, max time.Duration, attemptNum int, resp *http.Response) time.Duration {
+	rc.Backoff = func(minWait, maxWait time.Duration, attemptNum int, resp *http.Response) time.Duration {
 		if resp != nil && resp.StatusCode == http.StatusTooManyRequests {
 			if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
 				if seconds, err := strconv.Atoi(retryAfter); err == nil {
 					d := time.Duration(seconds) * time.Second
-					if d > max {
-						return max
+					if d > maxWait {
+						return maxWait
 					}
 					if d > 0 {
 						return d
 					}
 				}
 			}
-			return max
+			return maxWait
 		}
-		return retryablehttp.LinearJitterBackoff(min, max, attemptNum, resp)
+		return retryablehttp.LinearJitterBackoff(minWait, maxWait, attemptNum, resp)
 	}
 
 	return &NetboxClient{
