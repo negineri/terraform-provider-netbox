@@ -80,5 +80,8 @@ jobs:
       - run: go mod download
       - env:
           TF_ACC: "1"
+          NETBOX_SERVER_URL: ${{ secrets.NETBOX_SERVER_URL }}
+          NETBOX_TOKEN_V2: ${{ secrets.NETBOX_TOKEN_V2 }}
+          NETBOX_KEY_V2: ${{ secrets.NETBOX_KEY_V2 }}
         run: go test -v -cover ./internal/provider/
         timeout-minutes: 10
