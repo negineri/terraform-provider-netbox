@@ -4,8 +4,10 @@
 package provider
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
@@ -13,14 +15,16 @@ import (
 // 実行前に NETBOX_SERVER_URL / NETBOX_KEY_V2 / NETBOX_TOKEN_V2 環境変数と、
 // NetBox 上に device_type_id=1, role_id=1, site_id=1 が存在している必要があります。
 func TestAccDeviceInterfaceResource(t *testing.T) {
+	rName := acctest.RandomWithPrefix("tf-acc-test-device-iface")
+
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: providerConfig + `
+				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_device" "test" {
-  name           = "tf-acc-test-device-iface"
+  name           = %q
   device_type_id = 1
   role_id        = 1
   site_id        = 1
@@ -34,7 +38,7 @@ resource "netbox_device_interface" "test" {
   enabled     = true
   description = "terraform test interface"
 }
-`,
+`, rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_device_interface.test", "name", "lo"),
 					resource.TestCheckResourceAttr("netbox_device_interface.test", "type", "virtual"),
@@ -46,9 +50,9 @@ resource "netbox_device_interface" "test" {
 			},
 			// Update and Read testing
 			{
-				Config: providerConfig + `
+				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_device" "test" {
-  name           = "tf-acc-test-device-iface"
+  name           = %q
   device_type_id = 1
   role_id        = 1
   site_id        = 1
@@ -62,7 +66,7 @@ resource "netbox_device_interface" "test" {
   enabled     = false
   description = "terraform test interface updated"
 }
-`,
+`, rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_device_interface.test", "name", "loopback"),
 					resource.TestCheckResourceAttr("netbox_device_interface.test", "type", "virtual"),
