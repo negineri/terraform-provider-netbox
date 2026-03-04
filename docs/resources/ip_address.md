@@ -40,6 +40,8 @@ output "created_ip_id" {
 ### Optional
 
 - `description` (String) Description for the IP address.
+- `interface_id` (Number) The ID of the interface to assign this IP address to.
+- `interface_type` (String) The type of the interface object (e.g., dcim.interface, virtualization.vminterface).
 
 ### Read-Only
 
