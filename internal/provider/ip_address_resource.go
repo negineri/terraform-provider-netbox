@@ -32,10 +32,12 @@ type ipAddressResource struct {
 }
 
 type ipAddressResourceModel struct {
-	IpAddress   types.String `tfsdk:"ip_address"`
-	Status      types.String `tfsdk:"status"`
-	Description types.String `tfsdk:"description"`
-	Id          types.Int64  `tfsdk:"id"`
+	IpAddress     types.String `tfsdk:"ip_address"`
+	Status        types.String `tfsdk:"status"`
+	Description   types.String `tfsdk:"description"`
+	Id            types.Int64  `tfsdk:"id"`
+	InterfaceId   types.Int64  `tfsdk:"interface_id"`
+	InterfaceType types.String `tfsdk:"interface_type"`
 }
 
 func (r *ipAddressResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -67,6 +69,14 @@ func (r *ipAddressResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.UseStateForUnknown(),
 				},
+			},
+			"interface_id": schema.Int64Attribute{
+				MarkdownDescription: "The ID of the interface to assign this IP address to.",
+				Optional:            true,
+			},
+			"interface_type": schema.StringAttribute{
+				MarkdownDescription: "The type of the interface object (e.g., dcim.interface, virtualization.vminterface).",
+				Optional:            true,
 			},
 		},
 	}
@@ -102,6 +112,14 @@ func (r *ipAddressResource) Create(ctx context.Context, req resource.CreateReque
 	}
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		payload["description"] = plan.Description.ValueString()
+	}
+	if !plan.InterfaceId.IsNull() && !plan.InterfaceId.IsUnknown() {
+		payload["assigned_object_id"] = plan.InterfaceId.ValueInt64()
+		ifType := "dcim.interface"
+		if !plan.InterfaceType.IsNull() && !plan.InterfaceType.IsUnknown() {
+			ifType = plan.InterfaceType.ValueString()
+		}
+		payload["assigned_object_type"] = ifType
 	}
 
 	bodyBytes, err := json.Marshal(payload)
@@ -174,6 +192,13 @@ func (r *ipAddressResource) Read(ctx context.Context, req resource.ReadRequest, 
 		state.Description = types.StringValue(desc)
 	}
 
+	if ifType, ok := apiResponse["assigned_object_type"].(string); ok && ifType != "" {
+		state.InterfaceType = types.StringValue(ifType)
+		if ifIdFloat, ok := apiResponse["assigned_object_id"].(float64); ok {
+			state.InterfaceId = types.Int64Value(int64(ifIdFloat))
+		}
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -191,6 +216,19 @@ func (r *ipAddressResource) Update(ctx context.Context, req resource.UpdateReque
 	}
 	if !plan.Description.Equal(state.Description) {
 		payload["description"] = plan.Description.ValueString()
+	}
+	if !plan.InterfaceId.Equal(state.InterfaceId) || !plan.InterfaceType.Equal(state.InterfaceType) {
+		if plan.InterfaceId.IsNull() {
+			payload["assigned_object_id"] = nil
+			payload["assigned_object_type"] = nil
+		} else {
+			payload["assigned_object_id"] = plan.InterfaceId.ValueInt64()
+			ifType := "dcim.interface"
+			if !plan.InterfaceType.IsNull() && !plan.InterfaceType.IsUnknown() {
+				ifType = plan.InterfaceType.ValueString()
+			}
+			payload["assigned_object_type"] = ifType
+		}
 	}
 
 	if len(payload) > 0 {

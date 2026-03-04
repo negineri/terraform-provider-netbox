@@ -49,3 +49,79 @@ resource "netbox_ip_address" "test" {
 		},
 	})
 }
+
+// TestAccIpAddressResourceWithInterface は IP アドレスをデバイスインターフェースに割り当てる acceptance test です。
+// 実行前に NETBOX_SERVER_URL / NETBOX_KEY_V2 / NETBOX_TOKEN_V2 環境変数と、
+// NetBox 上に device_type_id=1, role_id=1, site_id=1 が存在している必要があります。
+func TestAccIpAddressResourceWithInterface(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create with interface assignment
+			{
+				Config: providerConfig + `
+resource "netbox_device" "test" {
+  name           = "tf-acc-test-device-ipaddr"
+  device_type_id = 1
+  role_id        = 1
+  site_id        = 1
+  status         = "active"
+}
+
+resource "netbox_device_interface" "test" {
+  device_id = netbox_device.test.id
+  name      = "lo0"
+  type      = "virtual"
+}
+
+resource "netbox_ip_address" "test" {
+  ip_address     = "192.168.200.1/32"
+  status         = "active"
+  description    = "terraform test IP with interface"
+  interface_id   = netbox_device_interface.test.id
+  interface_type = "dcim.interface"
+}
+`,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_ip_address.test", "ip_address", "192.168.200.1/32"),
+					resource.TestCheckResourceAttr("netbox_ip_address.test", "status", "active"),
+					resource.TestCheckResourceAttr("netbox_ip_address.test", "description", "terraform test IP with interface"),
+					resource.TestCheckResourceAttr("netbox_ip_address.test", "interface_type", "dcim.interface"),
+					resource.TestCheckResourceAttrSet("netbox_ip_address.test", "id"),
+					resource.TestCheckResourceAttrSet("netbox_ip_address.test", "interface_id"),
+				),
+			},
+			// Update: detach interface
+			{
+				Config: providerConfig + `
+resource "netbox_device" "test" {
+  name           = "tf-acc-test-device-ipaddr"
+  device_type_id = 1
+  role_id        = 1
+  site_id        = 1
+  status         = "active"
+}
+
+resource "netbox_device_interface" "test" {
+  device_id = netbox_device.test.id
+  name      = "lo0"
+  type      = "virtual"
+}
+
+resource "netbox_ip_address" "test" {
+  ip_address  = "192.168.200.1/32"
+  status      = "active"
+  description = "terraform test IP detached"
+}
+`,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_ip_address.test", "ip_address", "192.168.200.1/32"),
+					resource.TestCheckResourceAttr("netbox_ip_address.test", "status", "active"),
+					resource.TestCheckResourceAttr("netbox_ip_address.test", "description", "terraform test IP detached"),
+					resource.TestCheckNoResourceAttr("netbox_ip_address.test", "interface_id"),
+				),
+			},
+			// Delete testing automatically occurs in TestCase
+		},
+	})
+}
