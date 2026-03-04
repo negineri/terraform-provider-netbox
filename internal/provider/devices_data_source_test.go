@@ -18,10 +18,10 @@ func TestAccDevicesDataSource(t *testing.T) {
 				Config: providerConfig + `data "netbox_devices" "test" {}`,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					// Verify number of coffees returned
-					resource.TestCheckResourceAttr("data.netbox_devices.test", "devices.#", "1"),
+					resource.TestCheckResourceAttr("data.netbox_devices.test", "devices.#", "12"),
 					// Verify the first coffee to ensure all attributes are set
-					resource.TestCheckResourceAttr("data.netbox_devices.test", "devices.0.id", "1"),
-					resource.TestCheckResourceAttr("data.netbox_devices.test", "devices.0.name", "test"),
+					resource.TestCheckResourceAttr("data.netbox_devices.test", "devices.0.id", "141"),
+					resource.TestCheckResourceAttr("data.netbox_devices.test", "devices.0.name", "AUSYD01-SW-1"),
 				),
 			},
 		},
