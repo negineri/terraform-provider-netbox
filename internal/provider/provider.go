@@ -210,6 +210,7 @@ func (p *netboxProvider) Resources(_ context.Context) []func() resource.Resource
 		NewPrefixResource,
 		NewIpAddressResource,
 		NewDeviceResource,
+		NewDeviceInterfaceResource,
 	}
 }
 

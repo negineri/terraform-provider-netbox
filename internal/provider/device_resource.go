@@ -15,7 +15,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -59,9 +58,6 @@ func (r *deviceResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			"name": schema.StringAttribute{
 				MarkdownDescription: "The name of the device.",
 				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
 			},
 			"device_type_id": schema.Int64Attribute{
 				MarkdownDescription: "The ID of the device type.",
@@ -217,6 +213,9 @@ func (r *deviceResource) Update(ctx context.Context, req resource.UpdateRequest,
 	}
 
 	payload := map[string]interface{}{}
+	if !plan.Name.Equal(state.Name) {
+		payload["name"] = plan.Name.ValueString()
+	}
 	if !plan.DeviceTypeId.Equal(state.DeviceTypeId) {
 		payload["device_type"] = map[string]interface{}{"id": plan.DeviceTypeId.ValueInt64()}
 	}
