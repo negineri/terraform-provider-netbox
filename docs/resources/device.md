@@ -28,15 +28,15 @@ resource "netbox_device" "example" {
 
 ### Required
 
-- `name` (String) The name of the device.
 - `device_type_id` (Number) The ID of the device type.
+- `name` (String) The name of the device.
 - `role_id` (Number) The ID of the device role.
 - `site_id` (Number) The ID of the site where the device is located.
 
 ### Optional
 
-- `status` (String) The status of the device (e.g., active, offline, planned, staged, failed, decommissioning).
 - `description` (String) Description for the device.
+- `status` (String) The status of the device (e.g., active, offline, planned, staged, failed, decommissioning).
 
 ### Read-Only
 
