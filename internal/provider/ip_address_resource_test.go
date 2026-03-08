@@ -22,12 +22,14 @@ resource "netbox_ip_address" "test" {
   ip_address  = "192.168.100.1/24"
   status      = "active"
   description = "terraform test IP address"
+  dns_name    = "test.example.com"
 }
 `,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_ip_address.test", "ip_address", "192.168.100.1/24"),
 					resource.TestCheckResourceAttr("netbox_ip_address.test", "status", "active"),
 					resource.TestCheckResourceAttr("netbox_ip_address.test", "description", "terraform test IP address"),
+					resource.TestCheckResourceAttr("netbox_ip_address.test", "dns_name", "test.example.com"),
 					resource.TestCheckResourceAttrSet("netbox_ip_address.test", "id"),
 				),
 			},
@@ -38,12 +40,14 @@ resource "netbox_ip_address" "test" {
   ip_address  = "192.168.100.1/24"
   status      = "deprecated"
   description = "terraform test IP address updated"
+  dns_name    = "updated.example.com"
 }
 `,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_ip_address.test", "ip_address", "192.168.100.1/24"),
 					resource.TestCheckResourceAttr("netbox_ip_address.test", "status", "deprecated"),
 					resource.TestCheckResourceAttr("netbox_ip_address.test", "description", "terraform test IP address updated"),
+					resource.TestCheckResourceAttr("netbox_ip_address.test", "dns_name", "updated.example.com"),
 					resource.TestCheckResourceAttrSet("netbox_ip_address.test", "id"),
 				),
 			},
