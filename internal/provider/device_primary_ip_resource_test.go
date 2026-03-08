@@ -1,0 +1,174 @@
+// Copyright (c) negineri 2026
+// SPDX-License-Identifier: MPL-2.0
+
+package provider
+
+import (
+	"fmt"
+	"testing"
+
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+)
+
+// TestAccDevicePrimaryIPResource は acceptance test です。
+// 実行前に NETBOX_SERVER_URL / NETBOX_KEY_V2 / NETBOX_TOKEN_V2 環境変数と、
+// NetBox 上に device_type_id=1, role_id=1, site_id=1 が存在している必要があります。
+func TestAccDevicePrimaryIPResource(t *testing.T) {
+	rName := acctest.RandomWithPrefix("tf-acc-test-primary-ip")
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create: IPv4 と IPv6 の両方を primary IP として設定する
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_device" "test" {
+  name           = %q
+  device_type_id = 1
+  role_id        = 1
+  site_id        = 1
+  status         = "active"
+}
+
+resource "netbox_device_interface" "test" {
+  device_id = netbox_device.test.id
+  name      = "eth0"
+  type      = "virtual"
+}
+
+resource "netbox_ip_address" "ipv4" {
+  ip_address     = "192.168.50.1/24"
+  status         = "active"
+  interface_id   = netbox_device_interface.test.id
+  interface_type = "dcim.interface"
+}
+
+resource "netbox_ip_address" "ipv6" {
+  ip_address     = "2001:db8::1/64"
+  status         = "active"
+  interface_id   = netbox_device_interface.test.id
+  interface_type = "dcim.interface"
+}
+
+resource "netbox_device_primary_ip" "test" {
+  device_id      = netbox_device.test.id
+  primary_ipv4_id = netbox_ip_address.ipv4.id
+  primary_ipv6_id = netbox_ip_address.ipv6.id
+}
+`, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrPair(
+						"netbox_device_primary_ip.test", "device_id",
+						"netbox_device.test", "id",
+					),
+					resource.TestCheckResourceAttrPair(
+						"netbox_device_primary_ip.test", "primary_ipv4_id",
+						"netbox_ip_address.ipv4", "id",
+					),
+					resource.TestCheckResourceAttrPair(
+						"netbox_device_primary_ip.test", "primary_ipv6_id",
+						"netbox_ip_address.ipv6", "id",
+					),
+					resource.TestCheckResourceAttrSet("netbox_device_primary_ip.test", "id"),
+				),
+			},
+			// Update: primary IPv6 を削除し IPv4 のみにする
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_device" "test" {
+  name           = %q
+  device_type_id = 1
+  role_id        = 1
+  site_id        = 1
+  status         = "active"
+}
+
+resource "netbox_device_interface" "test" {
+  device_id = netbox_device.test.id
+  name      = "eth0"
+  type      = "virtual"
+}
+
+resource "netbox_ip_address" "ipv4" {
+  ip_address     = "192.168.50.1/24"
+  status         = "active"
+  interface_id   = netbox_device_interface.test.id
+  interface_type = "dcim.interface"
+}
+
+resource "netbox_ip_address" "ipv6" {
+  ip_address     = "2001:db8::1/64"
+  status         = "active"
+  interface_id   = netbox_device_interface.test.id
+  interface_type = "dcim.interface"
+}
+
+resource "netbox_device_primary_ip" "test" {
+  device_id      = netbox_device.test.id
+  primary_ipv4_id = netbox_ip_address.ipv4.id
+}
+`, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrPair(
+						"netbox_device_primary_ip.test", "primary_ipv4_id",
+						"netbox_ip_address.ipv4", "id",
+					),
+					resource.TestCheckNoResourceAttr("netbox_device_primary_ip.test", "primary_ipv6_id"),
+				),
+			},
+			// Update: primary IPv4 を別のアドレスに変更する
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_device" "test" {
+  name           = %q
+  device_type_id = 1
+  role_id        = 1
+  site_id        = 1
+  status         = "active"
+}
+
+resource "netbox_device_interface" "test" {
+  device_id = netbox_device.test.id
+  name      = "eth0"
+  type      = "virtual"
+}
+
+resource "netbox_ip_address" "ipv4" {
+  ip_address     = "192.168.50.1/24"
+  status         = "active"
+  interface_id   = netbox_device_interface.test.id
+  interface_type = "dcim.interface"
+}
+
+resource "netbox_ip_address" "ipv4_new" {
+  ip_address     = "192.168.50.2/24"
+  status         = "active"
+  interface_id   = netbox_device_interface.test.id
+  interface_type = "dcim.interface"
+}
+
+resource "netbox_ip_address" "ipv6" {
+  ip_address     = "2001:db8::1/64"
+  status         = "active"
+  interface_id   = netbox_device_interface.test.id
+  interface_type = "dcim.interface"
+}
+
+resource "netbox_device_primary_ip" "test" {
+  device_id      = netbox_device.test.id
+  primary_ipv4_id = netbox_ip_address.ipv4_new.id
+}
+`, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrPair(
+						"netbox_device_primary_ip.test", "primary_ipv4_id",
+						"netbox_ip_address.ipv4_new", "id",
+					),
+					resource.TestCheckNoResourceAttr("netbox_device_primary_ip.test", "primary_ipv6_id"),
+				),
+			},
+			// Delete testing automatically occurs in TestCase
+		},
+	})
+}
