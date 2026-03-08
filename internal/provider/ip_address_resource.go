@@ -36,6 +36,7 @@ type ipAddressResourceModel struct {
 	IpAddress     types.String `tfsdk:"ip_address"`
 	Status        types.String `tfsdk:"status"`
 	Description   types.String `tfsdk:"description"`
+	DnsName       types.String `tfsdk:"dns_name"`
 	Id            types.Int64  `tfsdk:"id"`
 	InterfaceId   types.Int64  `tfsdk:"interface_id"`
 	InterfaceType types.String `tfsdk:"interface_type"`
@@ -62,6 +63,10 @@ func (r *ipAddressResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			},
 			"description": schema.StringAttribute{
 				MarkdownDescription: "Description for the IP address.",
+				Optional:            true,
+			},
+			"dns_name": schema.StringAttribute{
+				MarkdownDescription: "DNS name associated with the IP address.",
 				Optional:            true,
 			},
 			"id": schema.Int64Attribute{
@@ -115,6 +120,9 @@ func (r *ipAddressResource) Create(ctx context.Context, req resource.CreateReque
 	}
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		payload["description"] = plan.Description.ValueString()
+	}
+	if !plan.DnsName.IsNull() && !plan.DnsName.IsUnknown() {
+		payload["dns_name"] = plan.DnsName.ValueString()
 	}
 	if !plan.InterfaceId.IsNull() && !plan.InterfaceId.IsUnknown() {
 		payload["assigned_object_id"] = plan.InterfaceId.ValueInt64()
@@ -195,6 +203,10 @@ func (r *ipAddressResource) Read(ctx context.Context, req resource.ReadRequest, 
 		state.Description = types.StringValue(desc)
 	}
 
+	if dnsName, ok := apiResponse["dns_name"].(string); ok && !state.DnsName.IsNull() {
+		state.DnsName = types.StringValue(dnsName)
+	}
+
 	if ifType, ok := apiResponse["assigned_object_type"].(string); ok && ifType != "" {
 		state.InterfaceType = types.StringValue(ifType)
 		if ifIdFloat, ok := apiResponse["assigned_object_id"].(float64); ok {
@@ -219,6 +231,9 @@ func (r *ipAddressResource) Update(ctx context.Context, req resource.UpdateReque
 	}
 	if !plan.Description.Equal(state.Description) {
 		payload["description"] = plan.Description.ValueString()
+	}
+	if !plan.DnsName.Equal(state.DnsName) {
+		payload["dns_name"] = plan.DnsName.ValueString()
 	}
 	if !plan.InterfaceId.Equal(state.InterfaceId) || !plan.InterfaceType.Equal(state.InterfaceType) {
 		if plan.InterfaceId.IsNull() {
