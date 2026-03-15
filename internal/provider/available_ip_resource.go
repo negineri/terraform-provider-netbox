@@ -17,6 +17,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -35,12 +36,15 @@ type availableIpResource struct {
 }
 
 type availableIpResourceModel struct {
-	PrefixId    types.Int64  `tfsdk:"prefix_id"`
-	IpRangeId   types.Int64  `tfsdk:"ip_range_id"`
-	Status      types.String `tfsdk:"status"`
-	Description types.String `tfsdk:"description"`
-	Id          types.Int64  `tfsdk:"id"`
-	IpAddress   types.String `tfsdk:"ip_address"`
+	PrefixId      types.Int64  `tfsdk:"prefix_id"`
+	IpRangeId     types.Int64  `tfsdk:"ip_range_id"`
+	Status        types.String `tfsdk:"status"`
+	Description   types.String `tfsdk:"description"`
+	DnsName       types.String `tfsdk:"dns_name"`
+	InterfaceId   types.Int64  `tfsdk:"interface_id"`
+	InterfaceType types.String `tfsdk:"interface_type"`
+	Id            types.Int64  `tfsdk:"id"`
+	IpAddress     types.String `tfsdk:"ip_address"`
 }
 
 func (r *availableIpResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -78,6 +82,20 @@ func (r *availableIpResource) Schema(_ context.Context, _ resource.SchemaRequest
 			"description": schema.StringAttribute{
 				MarkdownDescription: "Description for the IP address.",
 				Optional:            true,
+			},
+			"dns_name": schema.StringAttribute{
+				MarkdownDescription: "DNS name associated with the IP address.",
+				Optional:            true,
+			},
+			"interface_id": schema.Int64Attribute{
+				MarkdownDescription: "The ID of the interface to assign this IP address to.",
+				Optional:            true,
+			},
+			"interface_type": schema.StringAttribute{
+				MarkdownDescription: "The type of the interface object (e.g., dcim.interface, virtualization.vminterface).",
+				Optional:            true,
+				Computed:            true,
+				Default:             stringdefault.StaticString("dcim.interface"),
 			},
 			"id": schema.Int64Attribute{
 				MarkdownDescription: "The numeric ID of the allocated IP address.",
@@ -127,6 +145,17 @@ func (r *availableIpResource) Create(ctx context.Context, req resource.CreateReq
 	}
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		payload["description"] = plan.Description.ValueString()
+	}
+	if !plan.DnsName.IsNull() && !plan.DnsName.IsUnknown() {
+		payload["dns_name"] = plan.DnsName.ValueString()
+	}
+	if !plan.InterfaceId.IsNull() && !plan.InterfaceId.IsUnknown() {
+		payload["assigned_object_id"] = plan.InterfaceId.ValueInt64()
+		ifType := "dcim.interface"
+		if !plan.InterfaceType.IsNull() && !plan.InterfaceType.IsUnknown() {
+			ifType = plan.InterfaceType.ValueString()
+		}
+		payload["assigned_object_type"] = ifType
 	}
 
 	var bodyBytes []byte
@@ -247,6 +276,17 @@ func (r *availableIpResource) Read(ctx context.Context, req resource.ReadRequest
 		state.Description = types.StringValue(desc)
 	}
 
+	if dnsName, ok := apiResponse["dns_name"].(string); ok && !state.DnsName.IsNull() {
+		state.DnsName = types.StringValue(dnsName)
+	}
+
+	if ifType, ok := apiResponse["assigned_object_type"].(string); ok && ifType != "" {
+		state.InterfaceType = types.StringValue(ifType)
+		if ifIdFloat, ok := apiResponse["assigned_object_id"].(float64); ok {
+			state.InterfaceId = types.Int64Value(int64(ifIdFloat))
+		}
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -264,6 +304,22 @@ func (r *availableIpResource) Update(ctx context.Context, req resource.UpdateReq
 	}
 	if !plan.Description.Equal(state.Description) {
 		payload["description"] = plan.Description.ValueString()
+	}
+	if !plan.DnsName.Equal(state.DnsName) {
+		payload["dns_name"] = plan.DnsName.ValueString()
+	}
+	if !plan.InterfaceId.Equal(state.InterfaceId) || !plan.InterfaceType.Equal(state.InterfaceType) {
+		if plan.InterfaceId.IsNull() {
+			payload["assigned_object_id"] = nil
+			payload["assigned_object_type"] = nil
+		} else {
+			payload["assigned_object_id"] = plan.InterfaceId.ValueInt64()
+			ifType := "dcim.interface"
+			if !plan.InterfaceType.IsNull() && !plan.InterfaceType.IsUnknown() {
+				ifType = plan.InterfaceType.ValueString()
+			}
+			payload["assigned_object_type"] = ifType
+		}
 	}
 
 	if len(payload) > 0 {
