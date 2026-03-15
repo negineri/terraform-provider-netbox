@@ -213,6 +213,9 @@ func (p *netboxProvider) Resources(_ context.Context) []func() resource.Resource
 		NewDeviceResource,
 		NewDeviceInterfaceResource,
 		NewDevicePrimaryIPResource,
+		NewSiteResource,
+		NewVlanGroupResource,
+		NewVlanResource,
 	}
 }
 
