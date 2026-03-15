@@ -44,6 +44,9 @@ output "allocated_ip_from_range" {
 ### Optional
 
 - `description` (String) Description for the IP address.
+- `dns_name` (String) DNS name associated with the IP address.
+- `interface_id` (Number) The ID of the interface to assign this IP address to.
+- `interface_type` (String) The type of the interface object (e.g., dcim.interface, virtualization.vminterface).
 - `ip_range_id` (Number) The ID of the IP range to allocate the IP from. Exactly one of prefix_id or ip_range_id must be provided.
 - `prefix_id` (Number) The ID of the prefix to allocate the IP from. Exactly one of prefix_id or ip_range_id must be provided.
 - `status` (String) The status of the IP address (e.g., active, reserved).
