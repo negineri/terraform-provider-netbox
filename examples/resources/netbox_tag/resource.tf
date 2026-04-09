@@ -1,3 +1,9 @@
+resource "netbox_tag" "example" {
+  name        = "production"
+  color       = "aa1409"
+  description = "Production environment tag"
+}
+
 resource "netbox_device" "example" {
   name           = "router-01"
   device_type_id = 1
@@ -5,5 +11,5 @@ resource "netbox_device" "example" {
   site_id        = 1
   status         = "active"
   description    = "Created via terraform-provider-netbox"
-  tags           = [1]
+  tags           = [netbox_tag.example.id]
 }

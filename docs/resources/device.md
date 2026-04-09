@@ -20,6 +20,7 @@ resource "netbox_device" "example" {
   site_id        = 1
   status         = "active"
   description    = "Created via terraform-provider-netbox"
+  tags           = [1]
 }
 ```
 
@@ -37,6 +38,7 @@ resource "netbox_device" "example" {
 
 - `description` (String) Description for the device.
 - `status` (String) The status of the device (e.g., active, offline, planned, staged, failed, decommissioning).
+- `tags` (List of Number) List of tag IDs to assign to the device.
 
 ### Read-Only
 
