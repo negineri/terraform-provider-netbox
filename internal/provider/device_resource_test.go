@@ -105,3 +105,53 @@ resource "netbox_device" "test" {
 		},
 	})
 }
+
+// TestAccDeviceResourceWithTags は tags 属性の acceptance test です。
+// 実行前に NETBOX_SERVER_URL / NETBOX_KEY_V2 / NETBOX_TOKEN_V2 環境変数と、
+// NetBox 上に device_type_id=1, role_id=1, site_id=1, tag_id=37 が存在している必要があります。
+func TestAccDeviceResourceWithTags(t *testing.T) {
+	rName := acctest.RandomWithPrefix("tf-acc-test-device-tags")
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create with tags
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_device" "test_tags" {
+  name           = %q
+  device_type_id = 1
+  role_id        = 1
+  site_id        = 1
+  status         = "active"
+  tags           = [37]
+}
+`, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_device.test_tags", "name", rName),
+					resource.TestCheckResourceAttr("netbox_device.test_tags", "tags.#", "1"),
+					resource.TestCheckResourceAttr("netbox_device.test_tags", "tags.0", "37"),
+					resource.TestCheckResourceAttrSet("netbox_device.test_tags", "id"),
+				),
+			},
+			// Update tags
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_device" "test_tags" {
+  name           = %q
+  device_type_id = 1
+  role_id        = 1
+  site_id        = 1
+  status         = "active"
+  tags           = []
+}
+`, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_device.test_tags", "name", rName),
+					resource.TestCheckResourceAttr("netbox_device.test_tags", "tags.#", "0"),
+				),
+			},
+			// Delete testing automatically occurs in TestCase
+		},
+	})
+}

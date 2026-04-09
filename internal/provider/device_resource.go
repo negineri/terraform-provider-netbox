@@ -11,6 +11,7 @@ import (
 
 	"terraform-provider-netbox/internal/client"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
@@ -38,6 +39,7 @@ type deviceResourceModel struct {
 	SiteId       types.Int64  `tfsdk:"site_id"`
 	Status       types.String `tfsdk:"status"`
 	Description  types.String `tfsdk:"description"`
+	Tags         types.List   `tfsdk:"tags"`
 }
 
 func (r *deviceResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -79,6 +81,11 @@ func (r *deviceResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				MarkdownDescription: "Description for the device.",
 				Optional:            true,
 			},
+			"tags": schema.ListAttribute{
+				ElementType:         types.Int64Type,
+				MarkdownDescription: "List of tag IDs to assign to the device.",
+				Optional:            true,
+			},
 		},
 	}
 }
@@ -118,6 +125,18 @@ func (r *deviceResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		payload["description"] = plan.Description.ValueString()
+	}
+	if !plan.Tags.IsNull() && !plan.Tags.IsUnknown() {
+		var tagIDs []int64
+		resp.Diagnostics.Append(plan.Tags.ElementsAs(ctx, &tagIDs, false)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		tags := make([]map[string]interface{}, len(tagIDs))
+		for i, id := range tagIDs {
+			tags[i] = map[string]interface{}{"id": id}
+		}
+		payload["tags"] = tags
 	}
 
 	bodyBytes, err := json.Marshal(payload)
@@ -201,6 +220,24 @@ func (r *deviceResource) Read(ctx context.Context, req resource.ReadRequest, res
 		state.Description = types.StringValue(desc)
 	}
 
+	if !state.Tags.IsNull() {
+		if tagsRaw, ok := apiResponse["tags"].([]interface{}); ok {
+			tagVals := make([]attr.Value, 0, len(tagsRaw))
+			for _, t := range tagsRaw {
+				if tagMap, ok := t.(map[string]interface{}); ok {
+					if idFloat, ok := tagMap["id"].(float64); ok {
+						tagVals = append(tagVals, types.Int64Value(int64(idFloat)))
+					}
+				}
+			}
+			listVal, diags := types.ListValue(types.Int64Type, tagVals)
+			resp.Diagnostics.Append(diags...)
+			if !resp.Diagnostics.HasError() {
+				state.Tags = listVal
+			}
+		}
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -230,6 +267,22 @@ func (r *deviceResource) Update(ctx context.Context, req resource.UpdateRequest,
 	}
 	if !plan.Description.Equal(state.Description) {
 		payload["description"] = plan.Description.ValueString()
+	}
+	if !plan.Tags.Equal(state.Tags) {
+		if !plan.Tags.IsNull() && !plan.Tags.IsUnknown() {
+			var tagIDs []int64
+			resp.Diagnostics.Append(plan.Tags.ElementsAs(ctx, &tagIDs, false)...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+			tags := make([]map[string]interface{}, len(tagIDs))
+			for i, id := range tagIDs {
+				tags[i] = map[string]interface{}{"id": id}
+			}
+			payload["tags"] = tags
+		} else {
+			payload["tags"] = []map[string]interface{}{}
+		}
 	}
 
 	if len(payload) > 0 {
