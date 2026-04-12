@@ -3,12 +3,12 @@
 page_title: "netbox_ip_address_range Resource - netbox"
 subcategory: ""
 description: |-
-  IP アドレス範囲記法 (例: 10.18.48.[224-239]/24) を使って Netbox に IP レンジを作成します。
+  IP アドレス範囲記法 (例: 10.18.48.[224-239]/24) を使って複数の IP アドレスを一括で確保・削除します。
 ---
 
 # netbox_ip_address_range (Resource)
 
-IP アドレス範囲記法 (例: `10.18.48.[224-239]/24`) を使って Netbox に IP レンジを作成します。
+IP アドレス範囲記法 (例: `10.18.48.[224-239]/24`) を使って複数の IP アドレスを一括で確保・削除します。
 
 ## Example Usage
 
@@ -42,11 +42,17 @@ output "end_address" {
 
 ### Optional
 
-- `description` (String) IP レンジの説明。
-- `status` (String) IP レンジのステータス (例: active, reserved)。
+- `description` (String) 範囲内すべての IP アドレスに適用する説明。
+- `status` (String) 範囲内すべての IP アドレスに適用するステータス (例: active, reserved, dhcp)。
 
 ### Read-Only
 
-- `end_address` (String) レンジの終了 IP アドレス (例: 10.18.48.239/24)。
-- `id` (Number) IP レンジの Netbox ID。
-- `start_address` (String) レンジの開始 IP アドレス (例: 10.18.48.224/24)。
+- `allocated_ips` (Attributes List) 確保された IP アドレスの一覧 (Netbox ID と IP アドレスを含む)。 (see [below for nested schema](#nestedatt--allocated_ips))
+
+<a id="nestedatt--allocated_ips"></a>
+### Nested Schema for `allocated_ips`
+
+Read-Only:
+
+- `id` (Number) IP アドレスの Netbox ID。
+- `ip_address` (String) IP アドレス (例: 10.18.48.224/24)。
