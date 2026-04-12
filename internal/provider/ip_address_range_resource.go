@@ -13,9 +13,10 @@ import (
 
 	"terraform-provider-netbox/internal/client"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -37,41 +38,51 @@ type ipAddressRangeResourceModel struct {
 	IpRange      types.String `tfsdk:"ip_range"`
 	Status       types.String `tfsdk:"status"`
 	Description  types.String `tfsdk:"description"`
-	Id           types.Int64  `tfsdk:"id"`
-	StartAddress types.String `tfsdk:"start_address"`
-	EndAddress   types.String `tfsdk:"end_address"`
+	AllocatedIPs types.List   `tfsdk:"allocated_ips"`
+}
+
+type allocatedIPModel struct {
+	Id        types.Int64  `tfsdk:"id"`
+	IpAddress types.String `tfsdk:"ip_address"`
+}
+
+var allocatedIPAttrTypes = map[string]attr.Type{
+	"id":         types.Int64Type,
+	"ip_address": types.StringType,
 }
 
 var ipRangeRegex = regexp.MustCompile(`^(\d+\.\d+\.\d+)\.\[(\d+)-(\d+)\]\/(\d+)$`)
 
-// parseIPRange は "10.18.48.[224-239]/24" のような記法を start/end アドレスに変換します。
-func parseIPRange(ipRange string) (startAddress, endAddress string, err error) {
+// parseIPRange は "10.18.48.[224-239]/24" のような記法を個別の IP アドレス一覧に展開します。
+func parseIPRange(ipRange string) ([]string, error) {
 	matches := ipRangeRegex.FindStringSubmatch(ipRange)
 	if matches == nil {
-		return "", "", fmt.Errorf("invalid IP range format: %q (expected format: x.x.x.[start-end]/mask)", ipRange)
+		return nil, fmt.Errorf("invalid IP range format: %q (expected format: x.x.x.[start-end]/mask)", ipRange)
 	}
 
 	prefix := matches[1]
 	start, err := strconv.Atoi(matches[2])
 	if err != nil {
-		return "", "", fmt.Errorf("invalid start value: %s", matches[2])
+		return nil, fmt.Errorf("invalid start value: %s", matches[2])
 	}
 	end, err := strconv.Atoi(matches[3])
 	if err != nil {
-		return "", "", fmt.Errorf("invalid end value: %s", matches[3])
+		return nil, fmt.Errorf("invalid end value: %s", matches[3])
 	}
 	mask := matches[4]
 
 	if start > end {
-		return "", "", fmt.Errorf("start (%d) must be <= end (%d)", start, end)
+		return nil, fmt.Errorf("start (%d) must be <= end (%d)", start, end)
 	}
 	if start < 0 || end > 255 {
-		return "", "", fmt.Errorf("octet values must be between 0 and 255")
+		return nil, fmt.Errorf("octet values must be between 0 and 255")
 	}
 
-	startAddress = fmt.Sprintf("%s.%d/%s", prefix, start, mask)
-	endAddress = fmt.Sprintf("%s.%d/%s", prefix, end, mask)
-	return startAddress, endAddress, nil
+	ips := make([]string, 0, end-start+1)
+	for i := start; i <= end; i++ {
+		ips = append(ips, fmt.Sprintf("%s.%d/%s", prefix, i, mask))
+	}
+	return ips, nil
 }
 
 func (r *ipAddressRangeResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -80,7 +91,7 @@ func (r *ipAddressRangeResource) Metadata(_ context.Context, req resource.Metada
 
 func (r *ipAddressRangeResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "IP アドレス範囲記法 (例: `10.18.48.[224-239]/24`) を使って Netbox に IP レンジを作成します。",
+		MarkdownDescription: "IP アドレス範囲記法 (例: `10.18.48.[224-239]/24`) を使って複数の IP アドレスを一括で確保・削除します。",
 		Attributes: map[string]schema.Attribute{
 			"ip_range": schema.StringAttribute{
 				MarkdownDescription: "IP 範囲記法 (例: `10.18.48.[224-239]/24`)。変更すると既存リソースを削除して再作成します。",
@@ -90,32 +101,30 @@ func (r *ipAddressRangeResource) Schema(_ context.Context, _ resource.SchemaRequ
 				},
 			},
 			"status": schema.StringAttribute{
-				MarkdownDescription: "IP レンジのステータス (例: active, reserved)。",
+				MarkdownDescription: "範囲内すべての IP アドレスに適用するステータス (例: active, reserved, dhcp)。",
 				Optional:            true,
 			},
 			"description": schema.StringAttribute{
-				MarkdownDescription: "IP レンジの説明。",
+				MarkdownDescription: "範囲内すべての IP アドレスに適用する説明。",
 				Optional:            true,
 			},
-			"id": schema.Int64Attribute{
-				MarkdownDescription: "IP レンジの Netbox ID。",
+			"allocated_ips": schema.ListNestedAttribute{
+				MarkdownDescription: "確保された IP アドレスの一覧 (Netbox ID と IP アドレスを含む)。",
 				Computed:            true,
-				PlanModifiers: []planmodifier.Int64{
-					int64planmodifier.UseStateForUnknown(),
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.UseStateForUnknown(),
 				},
-			},
-			"start_address": schema.StringAttribute{
-				MarkdownDescription: "レンジの開始 IP アドレス (例: 10.18.48.224/24)。",
-				Computed:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"end_address": schema.StringAttribute{
-				MarkdownDescription: "レンジの終了 IP アドレス (例: 10.18.48.239/24)。",
-				Computed:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"id": schema.Int64Attribute{
+							MarkdownDescription: "IP アドレスの Netbox ID。",
+							Computed:            true,
+						},
+						"ip_address": schema.StringAttribute{
+							MarkdownDescription: "IP アドレス (例: 10.18.48.224/24)。",
+							Computed:            true,
+						},
+					},
 				},
 			},
 		},
@@ -146,58 +155,72 @@ func (r *ipAddressRangeResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	startAddr, endAddr, err := parseIPRange(plan.IpRange.ValueString())
+	ips, err := parseIPRange(plan.IpRange.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid IP range", err.Error())
 		return
 	}
 
-	payload := map[string]any{
-		"start_address": startAddr,
-		"end_address":   endAddr,
-	}
-	if !plan.Status.IsNull() && !plan.Status.IsUnknown() {
-		payload["status"] = plan.Status.ValueString()
-	}
-	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
-		payload["description"] = plan.Description.ValueString()
+	allocatedIPs := make([]attr.Value, 0, len(ips))
+
+	for _, ip := range ips {
+		payload := map[string]any{
+			"address": ip,
+		}
+		if !plan.Status.IsNull() && !plan.Status.IsUnknown() {
+			payload["status"] = plan.Status.ValueString()
+		}
+		if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
+			payload["description"] = plan.Description.ValueString()
+		}
+
+		bodyBytes, err := json.Marshal(payload)
+		if err != nil {
+			resp.Diagnostics.AddError("Error marshaling payload", err.Error())
+			return
+		}
+
+		bodyStr, err := r.client.Post(ctx, "api/ipam/ip-addresses/", bytes.NewReader(bodyBytes))
+		if err != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("Error creating IP address %s", ip), err.Error())
+			return
+		}
+
+		var apiResponse map[string]any
+		if err := json.Unmarshal([]byte(*bodyStr), &apiResponse); err != nil {
+			resp.Diagnostics.AddError("Error parsing create response", err.Error())
+			return
+		}
+
+		idFloat, ok := apiResponse["id"].(float64)
+		if !ok {
+			resp.Diagnostics.AddError("Error parsing create response", "Could not find 'id' in response")
+			return
+		}
+		address, ok := apiResponse["address"].(string)
+		if !ok {
+			resp.Diagnostics.AddError("Error parsing create response", "Could not find 'address' in response")
+			return
+		}
+
+		obj, diags := types.ObjectValue(allocatedIPAttrTypes, map[string]attr.Value{
+			"id":         types.Int64Value(int64(idFloat)),
+			"ip_address": types.StringValue(address),
+		})
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		allocatedIPs = append(allocatedIPs, obj)
 	}
 
-	bodyBytes, err := json.Marshal(payload)
-	if err != nil {
-		resp.Diagnostics.AddError("Error marshaling payload", err.Error())
+	list, diags := types.ListValue(types.ObjectType{AttrTypes: allocatedIPAttrTypes}, allocatedIPs)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	bodyStr, err := r.client.Post(ctx, "api/ipam/ip-ranges/", bytes.NewReader(bodyBytes))
-	if err != nil {
-		resp.Diagnostics.AddError("Error creating IP range", err.Error())
-		return
-	}
-
-	var apiResponse map[string]any
-	if err := json.Unmarshal([]byte(*bodyStr), &apiResponse); err != nil {
-		resp.Diagnostics.AddError("Error parsing create response", err.Error())
-		return
-	}
-
-	idFloat, ok := apiResponse["id"].(float64)
-	if !ok {
-		resp.Diagnostics.AddError("Error parsing create response", "Could not find 'id' in response")
-		return
-	}
-
-	plan.Id = types.Int64Value(int64(idFloat))
-	plan.StartAddress = types.StringValue(startAddr)
-	plan.EndAddress = types.StringValue(endAddr)
-
-	if sa, ok := apiResponse["start_address"].(string); ok {
-		plan.StartAddress = types.StringValue(sa)
-	}
-	if ea, ok := apiResponse["end_address"].(string); ok {
-		plan.EndAddress = types.StringValue(ea)
-	}
-
+	plan.AllocatedIPs = list
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -208,37 +231,54 @@ func (r *ipAddressRangeResource) Read(ctx context.Context, req resource.ReadRequ
 		return
 	}
 
-	apiPath := fmt.Sprintf("api/ipam/ip-ranges/%d/", state.Id.ValueInt64())
-	bodyStr, err := r.client.Get(ctx, apiPath)
-	if err != nil {
-		tflog.Warn(ctx, "Could not read IP range, assuming it was deleted", map[string]any{"error": err.Error()})
-		resp.State.RemoveResource(ctx)
+	var storedIPs []allocatedIPModel
+	resp.Diagnostics.Append(state.AllocatedIPs.ElementsAs(ctx, &storedIPs, false)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	var apiResponse map[string]any
-	if err := json.Unmarshal([]byte(*bodyStr), &apiResponse); err != nil {
-		resp.Diagnostics.AddError("Error parsing read response", err.Error())
-		return
-	}
-
-	if sa, ok := apiResponse["start_address"].(string); ok {
-		state.StartAddress = types.StringValue(sa)
-	}
-	if ea, ok := apiResponse["end_address"].(string); ok {
-		state.EndAddress = types.StringValue(ea)
-	}
-
-	if statusMap, ok := apiResponse["status"].(map[string]any); ok {
-		if val, ok := statusMap["value"].(string); ok && !state.Status.IsNull() {
-			state.Status = types.StringValue(val)
+	newAllocatedIPs := make([]attr.Value, 0, len(storedIPs))
+	for _, m := range storedIPs {
+		apiPath := fmt.Sprintf("api/ipam/ip-addresses/%d/", m.Id.ValueInt64())
+		bodyStr, err := r.client.Get(ctx, apiPath)
+		if err != nil {
+			tflog.Warn(ctx, "IP address not found, removing range from state", map[string]any{
+				"id":    m.Id.ValueInt64(),
+				"error": err.Error(),
+			})
+			resp.State.RemoveResource(ctx)
+			return
 		}
+
+		var apiResponse map[string]any
+		if err := json.Unmarshal([]byte(*bodyStr), &apiResponse); err != nil {
+			resp.Diagnostics.AddError("Error parsing read response", err.Error())
+			return
+		}
+
+		address := m.IpAddress.ValueString()
+		if addr, ok := apiResponse["address"].(string); ok {
+			address = addr
+		}
+
+		obj, diags := types.ObjectValue(allocatedIPAttrTypes, map[string]attr.Value{
+			"id":         m.Id,
+			"ip_address": types.StringValue(address),
+		})
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		newAllocatedIPs = append(newAllocatedIPs, obj)
 	}
 
-	if desc, ok := apiResponse["description"].(string); ok && !state.Description.IsNull() {
-		state.Description = types.StringValue(desc)
+	list, diags := types.ListValue(types.ObjectType{AttrTypes: allocatedIPAttrTypes}, newAllocatedIPs)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
+	state.AllocatedIPs = list
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -250,32 +290,43 @@ func (r *ipAddressRangeResource) Update(ctx context.Context, req resource.Update
 		return
 	}
 
-	payload := map[string]any{}
-	if !plan.Status.Equal(state.Status) {
-		payload["status"] = plan.Status.ValueString()
-	}
-	if !plan.Description.Equal(state.Description) {
-		payload["description"] = plan.Description.ValueString()
-	}
-
-	if len(payload) > 0 {
-		bodyBytes, err := json.Marshal(payload)
-		if err != nil {
-			resp.Diagnostics.AddError("Error marshaling payload", err.Error())
-			return
+	if !plan.Status.Equal(state.Status) || !plan.Description.Equal(state.Description) {
+		payload := map[string]any{}
+		if !plan.Status.IsNull() && !plan.Status.IsUnknown() {
+			payload["status"] = plan.Status.ValueString()
+		}
+		if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
+			payload["description"] = plan.Description.ValueString()
 		}
 
-		apiPath := fmt.Sprintf("api/ipam/ip-ranges/%d/", state.Id.ValueInt64())
-		_, err = r.client.Patch(ctx, apiPath, bytes.NewReader(bodyBytes))
-		if err != nil {
-			resp.Diagnostics.AddError("Error updating IP range", err.Error())
-			return
+		if len(payload) > 0 {
+			var storedIPs []allocatedIPModel
+			resp.Diagnostics.Append(state.AllocatedIPs.ElementsAs(ctx, &storedIPs, false)...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+
+			bodyBytes, err := json.Marshal(payload)
+			if err != nil {
+				resp.Diagnostics.AddError("Error marshaling payload", err.Error())
+				return
+			}
+
+			for _, m := range storedIPs {
+				apiPath := fmt.Sprintf("api/ipam/ip-addresses/%d/", m.Id.ValueInt64())
+				_, err := r.client.Patch(ctx, apiPath, bytes.NewReader(bodyBytes))
+				if err != nil {
+					resp.Diagnostics.AddError(
+						fmt.Sprintf("Error updating IP address %s", m.IpAddress.ValueString()),
+						err.Error(),
+					)
+					return
+				}
+			}
 		}
 	}
 
-	plan.Id = state.Id
-	plan.StartAddress = state.StartAddress
-	plan.EndAddress = state.EndAddress
+	plan.AllocatedIPs = state.AllocatedIPs
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -286,8 +337,19 @@ func (r *ipAddressRangeResource) Delete(ctx context.Context, req resource.Delete
 		return
 	}
 
-	apiPath := fmt.Sprintf("api/ipam/ip-ranges/%d/", state.Id.ValueInt64())
-	if err := r.client.Delete(ctx, apiPath); err != nil {
-		tflog.Warn(ctx, "Delete failed, assuming already deleted", map[string]any{"error": err.Error()})
+	var storedIPs []allocatedIPModel
+	resp.Diagnostics.Append(state.AllocatedIPs.ElementsAs(ctx, &storedIPs, false)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	for _, m := range storedIPs {
+		apiPath := fmt.Sprintf("api/ipam/ip-addresses/%d/", m.Id.ValueInt64())
+		if err := r.client.Delete(ctx, apiPath); err != nil {
+			tflog.Warn(ctx, "Delete failed, assuming already deleted", map[string]any{
+				"id":    m.Id.ValueInt64(),
+				"error": err.Error(),
+			})
+		}
 	}
 }
