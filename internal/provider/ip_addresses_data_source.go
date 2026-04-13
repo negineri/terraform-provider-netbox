@@ -28,8 +28,8 @@ type ipAddressesDataSource struct {
 }
 
 type ipAddressesDataSourceModel struct {
-	Id          types.String      `tfsdk:"id"`
-	IpAddresses []ipAddressModel  `tfsdk:"ip_addresses"`
+	Id          types.String     `tfsdk:"id"`
+	IpAddresses []ipAddressModel `tfsdk:"ip_addresses"`
 }
 
 type ipAddressModel struct {

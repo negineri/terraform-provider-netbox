@@ -28,8 +28,8 @@ type virtualMachinesDataSource struct {
 }
 
 type virtualMachinesDataSourceModel struct {
-	Id              types.String           `tfsdk:"id"`
-	VirtualMachines []virtualMachineModel  `tfsdk:"virtual_machines"`
+	Id              types.String          `tfsdk:"id"`
+	VirtualMachines []virtualMachineModel `tfsdk:"virtual_machines"`
 }
 
 type virtualMachineModel struct {

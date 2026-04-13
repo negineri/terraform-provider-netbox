@@ -28,8 +28,8 @@ type vlanGroupsDataSource struct {
 }
 
 type vlanGroupsDataSourceModel struct {
-	Id         types.String      `tfsdk:"id"`
-	VlanGroups []vlanGroupModel  `tfsdk:"vlan_groups"`
+	Id         types.String     `tfsdk:"id"`
+	VlanGroups []vlanGroupModel `tfsdk:"vlan_groups"`
 }
 
 type vlanGroupModel struct {
