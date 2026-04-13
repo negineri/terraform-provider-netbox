@@ -8,3 +8,5 @@ resource "netbox_virtual_machine" "example" {
   description = "Created via terraform-provider-netbox"
   tags        = [1]
 }
+
+# A virtual machine must be assigned to a site and/or cluster.

@@ -67,7 +67,7 @@ func (r *virtualMachineResource) Schema(_ context.Context, _ resource.SchemaRequ
 			},
 			"cluster_id": schema.Int64Attribute{
 				MarkdownDescription: "The ID of the cluster where the virtual machine is hosted.",
-				Required:            true,
+				Optional:            true,
 			},
 			"status": schema.StringAttribute{
 				MarkdownDescription: "The status of the virtual machine (e.g., active, offline, planned, staged, failed, decommissioning).",
@@ -135,8 +135,10 @@ func (r *virtualMachineResource) Create(ctx context.Context, req resource.Create
 	}
 
 	payload := map[string]interface{}{
-		"name":    plan.Name.ValueString(),
-		"cluster": map[string]interface{}{"id": plan.ClusterId.ValueInt64()},
+		"name": plan.Name.ValueString(),
+	}
+	if !plan.ClusterId.IsNull() && !plan.ClusterId.IsUnknown() {
+		payload["cluster"] = map[string]interface{}{"id": plan.ClusterId.ValueInt64()}
 	}
 	if !plan.Status.IsNull() && !plan.Status.IsUnknown() {
 		payload["status"] = plan.Status.ValueString()
@@ -232,6 +234,8 @@ func (r *virtualMachineResource) Read(ctx context.Context, req resource.ReadRequ
 		if idFloat, ok := clusterMap["id"].(float64); ok {
 			state.ClusterId = types.Int64Value(int64(idFloat))
 		}
+	} else if !state.ClusterId.IsNull() {
+		state.ClusterId = types.Int64Null()
 	}
 
 	if statusMap, ok := apiResponse["status"].(map[string]interface{}); ok {
@@ -314,7 +318,11 @@ func (r *virtualMachineResource) Update(ctx context.Context, req resource.Update
 		payload["name"] = plan.Name.ValueString()
 	}
 	if !plan.ClusterId.Equal(state.ClusterId) {
-		payload["cluster"] = map[string]interface{}{"id": plan.ClusterId.ValueInt64()}
+		if plan.ClusterId.IsNull() {
+			payload["cluster"] = nil
+		} else {
+			payload["cluster"] = map[string]interface{}{"id": plan.ClusterId.ValueInt64()}
+		}
 	}
 	if !plan.Status.Equal(state.Status) {
 		payload["status"] = plan.Status.ValueString()

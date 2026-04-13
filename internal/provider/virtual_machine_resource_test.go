@@ -111,6 +111,36 @@ resource "netbox_virtual_machine" "test" {
 	})
 }
 
+// TestAccVirtualMachineResourceWithoutCluster は cluster_id を指定せず site_id のみで作成する acceptance test です。
+// 実行前に NetBox 上に site_id=1 が存在している必要があります。
+func TestAccVirtualMachineResourceWithoutCluster(t *testing.T) {
+	rName := acctest.RandomWithPrefix("tf-acc-test-vm-nocluster")
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create with site_id only (no cluster_id)
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_virtual_machine" "test_nocluster" {
+  name    = %q
+  site_id = 1
+  status  = "active"
+}
+`, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_virtual_machine.test_nocluster", "name", rName),
+					resource.TestCheckResourceAttr("netbox_virtual_machine.test_nocluster", "site_id", "1"),
+					resource.TestCheckResourceAttr("netbox_virtual_machine.test_nocluster", "status", "active"),
+					resource.TestCheckNoResourceAttr("netbox_virtual_machine.test_nocluster", "cluster_id"),
+					resource.TestCheckResourceAttrSet("netbox_virtual_machine.test_nocluster", "id"),
+				),
+			},
+			// Delete testing automatically occurs in TestCase
+		},
+	})
+}
+
 // TestAccVirtualMachineResourceWithTags は tags 属性の acceptance test です。
 // 実行前に NETBOX_SERVER_URL / NETBOX_KEY_V2 / NETBOX_TOKEN_V2 環境変数と、
 // NetBox 上に cluster_id=1, tag_id=37 が存在している必要があります。
