@@ -200,6 +200,13 @@ func (p *netboxProvider) Configure(ctx context.Context, req provider.ConfigureRe
 func (p *netboxProvider) DataSources(_ context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		NewDevicesDataSource,
+		NewSitesDataSource,
+		NewTagsDataSource,
+		NewPrefixesDataSource,
+		NewIpAddressesDataSource,
+		NewVlansDataSource,
+		NewVlanGroupsDataSource,
+		NewVirtualMachinesDataSource,
 	}
 }
 
