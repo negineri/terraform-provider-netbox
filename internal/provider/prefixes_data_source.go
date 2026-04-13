@@ -28,8 +28,8 @@ type prefixesDataSource struct {
 }
 
 type prefixesDataSourceModel struct {
-	Id       types.String   `tfsdk:"id"`
-	Prefixes []prefixModel  `tfsdk:"prefixes"`
+	Id       types.String  `tfsdk:"id"`
+	Prefixes []prefixModel `tfsdk:"prefixes"`
 }
 
 type prefixModel struct {
