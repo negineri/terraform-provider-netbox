@@ -52,12 +52,17 @@ func (p *netboxProvider) Schema(_ context.Context, _ provider.SchemaRequest, res
 				Description: "URL for Netbox API. May also be provided via NETBOX_SERVER_URL environment variable.",
 				Optional:    true,
 			},
+			"token": schema.StringAttribute{
+				Description: "API v1 token for Netbox. May also be provided via NETBOX_TOKEN environment variable. Use this or the key_v2/token_v2 pair.",
+				Optional:    true,
+				Sensitive:   true,
+			},
 			"key_v2": schema.StringAttribute{
-				Description: "API key for Netbox. May also be provided via NETBOX_KEY_V2 environment variable.",
+				Description: "API key for Netbox v2 token. May also be provided via NETBOX_KEY_V2 environment variable.",
 				Optional:    true,
 			},
 			"token_v2": schema.StringAttribute{
-				Description: "API token for Netbox. May also be provided via NETBOX_TOKEN_V2 environment variable.",
+				Description: "API token for Netbox v2 token. May also be provided via NETBOX_TOKEN_V2 environment variable.",
 				Optional:    true,
 				Sensitive:   true,
 			},
@@ -87,6 +92,15 @@ func (p *netboxProvider) Configure(ctx context.Context, req provider.ConfigureRe
 		)
 	}
 
+	if config.Token.IsUnknown() {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("token"),
+			"Unknown Netbox API Token (v1)",
+			"The provider cannot create the Netbox API client as there is an unknown configuration value for the Netbox API v1 token. "+
+				"Either target apply the source of the value first, set the value statically in the configuration, or use the NETBOX_TOKEN environment variable.",
+		)
+	}
+
 	if config.KeyV2.IsUnknown() {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("key_v2"),
@@ -99,8 +113,8 @@ func (p *netboxProvider) Configure(ctx context.Context, req provider.ConfigureRe
 	if config.TokenV2.IsUnknown() {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("token_v2"),
-			"Unknown Netbox API Token",
-			"The provider cannot create the Netbox API client as there is an unknown configuration value for the Netbox API token. "+
+			"Unknown Netbox API Token (v2)",
+			"The provider cannot create the Netbox API client as there is an unknown configuration value for the Netbox API v2 token. "+
 				"Either target apply the source of the value first, set the value statically in the configuration, or use the NETBOX_TOKEN_V2 environment variable.",
 		)
 	}
@@ -113,11 +127,16 @@ func (p *netboxProvider) Configure(ctx context.Context, req provider.ConfigureRe
 	// with Terraform configuration value if set.
 
 	serverURL := os.Getenv("NETBOX_SERVER_URL")
+	token := os.Getenv("NETBOX_TOKEN")
 	keyV2 := os.Getenv("NETBOX_KEY_V2")
 	tokenV2 := os.Getenv("NETBOX_TOKEN_V2")
 
 	if !config.ServerURL.IsNull() {
 		serverURL = config.ServerURL.ValueString()
+	}
+
+	if !config.Token.IsNull() {
+		token = config.Token.ValueString()
 	}
 
 	if !config.KeyV2.IsNull() {
@@ -141,24 +160,42 @@ func (p *netboxProvider) Configure(ctx context.Context, req provider.ConfigureRe
 		)
 	}
 
-	if keyV2 == "" {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("key_v2"),
-			"Missing Netbox API Key",
-			"The provider cannot create the Netbox API client as there is a missing or empty value for the Netbox API key. "+
-				"Set the key value in the configuration or use the NETBOX_KEY_V2 environment variable. "+
-				"If either is already set, ensure the value is not empty.",
+	// token (v1) か key_v2+token_v2 (v2) のどちらかが必要
+	useV1 := token != ""
+	useV2 := keyV2 != "" || tokenV2 != ""
+
+	if !useV1 && !useV2 {
+		resp.Diagnostics.AddError(
+			"Missing Netbox API Credentials",
+			"The provider cannot create the Netbox API client as no credentials were provided. "+
+				"Provide either a v1 token (token / NETBOX_TOKEN) or a v2 key+token pair (key_v2+token_v2 / NETBOX_KEY_V2+NETBOX_TOKEN_V2).",
 		)
 	}
 
-	if tokenV2 == "" {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("token_v2"),
-			"Missing Netbox API Token",
-			"The provider cannot create the Netbox API client as there is a missing or empty value for the Netbox API token. "+
-				"Set the token value in the configuration or use the NETBOX_TOKEN_V2 environment variable. "+
-				"If either is already set, ensure the value is not empty.",
+	if useV1 && useV2 {
+		resp.Diagnostics.AddError(
+			"Conflicting Netbox API Credentials",
+			"Both a v1 token and v2 key+token pair were provided. Provide only one authentication method.",
 		)
+	}
+
+	if useV2 {
+		if keyV2 == "" {
+			resp.Diagnostics.AddAttributeError(
+				path.Root("key_v2"),
+				"Missing Netbox API Key (v2)",
+				"token_v2 was provided but key_v2 is missing. "+
+					"Set the key value in the configuration or use the NETBOX_KEY_V2 environment variable.",
+			)
+		}
+		if tokenV2 == "" {
+			resp.Diagnostics.AddAttributeError(
+				path.Root("token_v2"),
+				"Missing Netbox API Token (v2)",
+				"key_v2 was provided but token_v2 is missing. "+
+					"Set the token value in the configuration or use the NETBOX_TOKEN_V2 environment variable.",
+			)
+		}
 	}
 
 	if resp.Diagnostics.HasError() {
@@ -177,9 +214,15 @@ func (p *netboxProvider) Configure(ctx context.Context, req provider.ConfigureRe
 		)
 		return
 	}
-	client := client.NewNetboxClient(serverURL, keyV2, tokenV2)
 
-	_, err = client.Get(ctx, "api/status/")
+	var netboxClient *client.NetboxClient
+	if useV1 {
+		netboxClient = client.NewNetboxClientV1(serverURL, token)
+	} else {
+		netboxClient = client.NewNetboxClient(serverURL, keyV2, tokenV2)
+	}
+
+	_, err = netboxClient.Get(ctx, "api/status/")
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to Create Netbox API Client",
@@ -192,8 +235,8 @@ func (p *netboxProvider) Configure(ctx context.Context, req provider.ConfigureRe
 
 	// Make the Netbox client available during DataSource and Resource
 	// type Configure methods.
-	resp.DataSourceData = client
-	resp.ResourceData = client
+	resp.DataSourceData = netboxClient
+	resp.ResourceData = netboxClient
 }
 
 // DataSources はプロバイダーで実装されているデータソースを定義します。
@@ -245,6 +288,7 @@ func (p *netboxProvider) Resources(_ context.Context) []func() resource.Resource
 // netboxProviderModel maps provider schema data to a Go type.
 type netboxProviderModel struct {
 	ServerURL types.String `tfsdk:"server_url"`
+	Token     types.String `tfsdk:"token"`
 	KeyV2     types.String `tfsdk:"key_v2"`
 	TokenV2   types.String `tfsdk:"token_v2"`
 }

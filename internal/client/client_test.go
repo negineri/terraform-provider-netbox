@@ -26,6 +26,40 @@ func TestNewNetboxClient(t *testing.T) {
 	if c.baseURL != "http://localhost:8080" {
 		t.Errorf("unexpected baseURL: %s", c.baseURL)
 	}
+	if c.authHeader != "Bearer nbt_mykey.mytoken" {
+		t.Errorf("unexpected authHeader: %s", c.authHeader)
+	}
+}
+
+func TestNewNetboxClientV1(t *testing.T) {
+	c := NewNetboxClientV1("http://localhost:8080", "myv1token")
+	if c == nil {
+		t.Fatal("expected non-nil client")
+	}
+	if c.baseURL != "http://localhost:8080" {
+		t.Errorf("unexpected baseURL: %s", c.baseURL)
+	}
+	if c.authHeader != "Token myv1token" {
+		t.Errorf("unexpected authHeader: %s", c.authHeader)
+	}
+}
+
+func TestGet_RequestHeaders_V1(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader != "Token myv1token" {
+			t.Errorf("unexpected Authorization header: %s", authHeader)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+
+	c := NewNetboxClientV1(srv.URL, "myv1token")
+	_, err := c.Get(context.Background(), "api/status/")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 }
 
 func TestGet(t *testing.T) {
