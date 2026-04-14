@@ -14,6 +14,7 @@ import (
 )
 
 // TestAccSiteResource は netbox_site の acceptance test です。
+// slug 未指定時の自動生成・CRUD・rename を一連のステップで検証します。
 // 実行前に NETBOX_SERVER_URL / NETBOX_KEY_V2 / NETBOX_TOKEN_V2 環境変数が必要です。
 func TestAccSiteResource(t *testing.T) {
 	var capturedID string
@@ -23,7 +24,21 @@ func TestAccSiteResource(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
-			// Create and Read testing
+			// AutoSlug: slug 未指定時に自動生成されることを確認する
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_site" "test" {
+  name   = %q
+  status = "active"
+}
+`, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_site.test", "name", rName),
+					resource.TestCheckResourceAttrSet("netbox_site.test", "slug"),
+					resource.TestCheckResourceAttrSet("netbox_site.test", "id"),
+				),
+			},
+			// Create and Read testing (with explicit slug)
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_site" "test" {
@@ -78,7 +93,7 @@ resource "netbox_site" "test" {
 					resource.TestCheckResourceAttrSet("netbox_site.test", "id"),
 				),
 			},
-			// Rename testing: site名を変更してもIDが変化しないことを確認する
+			// Rename testing: site 名を変更してもIDが変化しないことを確認する
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_site" "test" {
@@ -159,32 +174,6 @@ resource "netbox_site" "test_cf" {
 `, rCfName, rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_site.test_cf", fmt.Sprintf("custom_fields.%s", rCfName), "site-cf-updated"),
-				),
-			},
-			// Delete testing automatically occurs in TestCase
-		},
-	})
-}
-
-// TestAccSiteResourceAutoSlug は slug 未指定時の自動生成を検証する acceptance test です。
-func TestAccSiteResourceAutoSlug(t *testing.T) {
-	rName := acctest.RandomWithPrefix("tf-acc-test-site")
-
-	resource.ParallelTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			// slug を明示せずに作成し、Computed として返ってくることを確認
-			{
-				Config: providerConfig + fmt.Sprintf(`
-resource "netbox_site" "test" {
-  name   = %q
-  status = "active"
-}
-`, rName),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("netbox_site.test", "name", rName),
-					resource.TestCheckResourceAttrSet("netbox_site.test", "slug"),
-					resource.TestCheckResourceAttrSet("netbox_site.test", "id"),
 				),
 			},
 			// Delete testing automatically occurs in TestCase

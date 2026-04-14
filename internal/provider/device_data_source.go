@@ -35,6 +35,7 @@ type deviceDataSourceModel struct {
 	SiteId       types.Int64  `tfsdk:"site_id"`
 	Status       types.String `tfsdk:"status"`
 	Description  types.String `tfsdk:"description"`
+	Serial       types.String `tfsdk:"serial"`
 }
 
 func (d *deviceDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -71,6 +72,10 @@ func (d *deviceDataSource) Schema(_ context.Context, _ datasource.SchemaRequest,
 			},
 			"description": schema.StringAttribute{
 				MarkdownDescription: "Description for the device.",
+				Computed:            true,
+			},
+			"serial": schema.StringAttribute{
+				MarkdownDescription: "Serial number of the device.",
 				Computed:            true,
 			},
 		},
@@ -140,6 +145,9 @@ func (d *deviceDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 	}
 	if desc, ok := apiResponse["description"].(string); ok {
 		state.Description = types.StringValue(desc)
+	}
+	if serial, ok := apiResponse["serial"].(string); ok {
+		state.Serial = types.StringValue(serial)
 	}
 
 	tflog.Trace(ctx, "read a data source")

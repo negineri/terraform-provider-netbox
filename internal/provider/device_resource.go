@@ -39,6 +39,7 @@ type deviceResourceModel struct {
 	SiteId       types.Int64  `tfsdk:"site_id"`
 	Status       types.String `tfsdk:"status"`
 	Description  types.String `tfsdk:"description"`
+	Serial       types.String `tfsdk:"serial"`
 	Tags         types.List   `tfsdk:"tags"`
 	CustomFields types.Map    `tfsdk:"custom_fields"`
 }
@@ -80,6 +81,10 @@ func (r *deviceResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			},
 			"description": schema.StringAttribute{
 				MarkdownDescription: "Description for the device.",
+				Optional:            true,
+			},
+			"serial": schema.StringAttribute{
+				MarkdownDescription: "Serial number of the device.",
 				Optional:            true,
 			},
 			"tags": schema.ListAttribute{
@@ -127,6 +132,9 @@ func (r *deviceResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		payload["description"] = plan.Description.ValueString()
+	}
+	if !plan.Serial.IsNull() && !plan.Serial.IsUnknown() {
+		payload["serial"] = plan.Serial.ValueString()
 	}
 	if !plan.Tags.IsNull() && !plan.Tags.IsUnknown() {
 		var tagIDs []int64
@@ -238,6 +246,10 @@ func (r *deviceResource) Read(ctx context.Context, req resource.ReadRequest, res
 		state.Description = types.StringValue(desc)
 	}
 
+	if serial, ok := apiResponse["serial"].(string); ok && !state.Serial.IsNull() {
+		state.Serial = types.StringValue(serial)
+	}
+
 	if !state.Tags.IsNull() {
 		if tagsRaw, ok := apiResponse["tags"].([]interface{}); ok {
 			tagVals := make([]attr.Value, 0, len(tagsRaw))
@@ -293,6 +305,9 @@ func (r *deviceResource) Update(ctx context.Context, req resource.UpdateRequest,
 	}
 	if !plan.Description.Equal(state.Description) {
 		payload["description"] = plan.Description.ValueString()
+	}
+	if !plan.Serial.Equal(state.Serial) {
+		payload["serial"] = plan.Serial.ValueString()
 	}
 	if !plan.Tags.Equal(state.Tags) {
 		if !plan.Tags.IsNull() && !plan.Tags.IsUnknown() {

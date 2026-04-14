@@ -13,6 +13,7 @@ import (
 )
 
 // TestAccVlanGroupResource は netbox_vlan_group の acceptance test です。
+// slug 未指定時の自動生成・CRUD・rename を一連のステップで検証します。
 // 実行前に NETBOX_SERVER_URL / NETBOX_KEY_V2 / NETBOX_TOKEN_V2 環境変数が必要です。
 func TestAccVlanGroupResource(t *testing.T) {
 	var capturedID string
@@ -22,7 +23,20 @@ func TestAccVlanGroupResource(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
-			// Create and Read testing
+			// AutoSlug: slug 未指定時に自動生成されることを確認する
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_vlan_group" "test" {
+  name = %q
+}
+`, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_vlan_group.test", "name", rName),
+					resource.TestCheckResourceAttrSet("netbox_vlan_group.test", "slug"),
+					resource.TestCheckResourceAttrSet("netbox_vlan_group.test", "id"),
+				),
+			},
+			// Create and Read testing (with explicit slug)
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_vlan_group" "test" {
@@ -123,30 +137,6 @@ resource "netbox_vlan_group" "test" {
 					resource.TestCheckResourceAttr("netbox_vlan_group.test", "name", rGroupName),
 					resource.TestCheckResourceAttr("netbox_vlan_group.test", "scope_type", "dcim.site"),
 					resource.TestCheckResourceAttrSet("netbox_vlan_group.test", "scope_id"),
-					resource.TestCheckResourceAttrSet("netbox_vlan_group.test", "slug"),
-					resource.TestCheckResourceAttrSet("netbox_vlan_group.test", "id"),
-				),
-			},
-			// Delete testing automatically occurs in TestCase
-		},
-	})
-}
-
-// TestAccVlanGroupResourceAutoSlug は slug 未指定時の自動生成を検証する acceptance test です。
-func TestAccVlanGroupResourceAutoSlug(t *testing.T) {
-	rName := acctest.RandomWithPrefix("tf-acc-test-vlan-group")
-
-	resource.ParallelTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			{
-				Config: providerConfig + fmt.Sprintf(`
-resource "netbox_vlan_group" "test" {
-  name = %q
-}
-`, rName),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("netbox_vlan_group.test", "name", rName),
 					resource.TestCheckResourceAttrSet("netbox_vlan_group.test", "slug"),
 					resource.TestCheckResourceAttrSet("netbox_vlan_group.test", "id"),
 				),

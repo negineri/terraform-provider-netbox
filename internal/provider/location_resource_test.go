@@ -14,17 +14,39 @@ import (
 )
 
 // TestAccLocationResource は netbox_location の acceptance test です。
+// slug 未指定時の自動生成・CRUD・rename を一連のステップで検証します。
 // 実行前に NETBOX_SERVER_URL / NETBOX_KEY_V2 / NETBOX_TOKEN_V2 環境変数が必要です。
 func TestAccLocationResource(t *testing.T) {
 	var capturedID string
 	rSiteName := acctest.RandomWithPrefix("tf-acc-test-site")
 	rName := acctest.RandomWithPrefix("tf-acc-test-location")
 	rNameRenamed := rName + "-renamed"
+	rCfName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_location"), "-", "_")
 
 	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
-			// Create and Read testing
+			// AutoSlug: slug 未指定時に自動生成されることを確認する
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_site" "test" {
+  name   = %q
+  status = "active"
+}
+
+resource "netbox_location" "test" {
+  name    = %q
+  site_id = netbox_site.test.id
+  status  = "active"
+}
+`, rSiteName, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_location.test", "name", rName),
+					resource.TestCheckResourceAttrSet("netbox_location.test", "slug"),
+					resource.TestCheckResourceAttrSet("netbox_location.test", "id"),
+				),
+			},
+			// Create and Read testing (with explicit slug)
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_site" "test" {
@@ -109,6 +131,64 @@ resource "netbox_location" "test" {
 					},
 				),
 			},
+			// Custom fields: カスタムフィールドを設定する
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_site" "test" {
+  name   = %q
+  status = "active"
+}
+
+resource "netbox_custom_field" "test" {
+  name          = %q
+  type          = "text"
+  content_types = ["dcim.location"]
+}
+
+resource "netbox_location" "test_cf" {
+  name    = %q
+  site_id = netbox_site.test.id
+  status  = "active"
+
+  custom_fields = {
+    (netbox_custom_field.test.name) = "location-cf-value"
+  }
+}
+`, rSiteName, rCfName, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_location.test_cf", "name", rName),
+					resource.TestCheckResourceAttrSet("netbox_location.test_cf", "id"),
+					resource.TestCheckResourceAttr("netbox_location.test_cf", fmt.Sprintf("custom_fields.%s", rCfName), "location-cf-value"),
+				),
+			},
+			// Custom fields: 値を更新する
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_site" "test" {
+  name   = %q
+  status = "active"
+}
+
+resource "netbox_custom_field" "test" {
+  name          = %q
+  type          = "text"
+  content_types = ["dcim.location"]
+}
+
+resource "netbox_location" "test_cf" {
+  name    = %q
+  site_id = netbox_site.test.id
+  status  = "active"
+
+  custom_fields = {
+    (netbox_custom_field.test.name) = "location-cf-updated"
+  }
+}
+`, rSiteName, rCfName, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_location.test_cf", fmt.Sprintf("custom_fields.%s", rCfName), "location-cf-updated"),
+				),
+			},
 			// Delete testing automatically occurs in TestCase
 		},
 	})
@@ -147,111 +227,6 @@ resource "netbox_location" "child" {
 					resource.TestCheckResourceAttr("netbox_location.child", "name", rChildName),
 					resource.TestCheckResourceAttrSet("netbox_location.child", "parent_id"),
 					resource.TestCheckResourceAttrPair("netbox_location.child", "parent_id", "netbox_location.parent", "id"),
-				),
-			},
-			// Delete testing automatically occurs in TestCase
-		},
-	})
-}
-
-// TestAccLocationResourceWithCustomFields は custom_fields 属性の acceptance test です。
-func TestAccLocationResourceWithCustomFields(t *testing.T) {
-	rSiteName := acctest.RandomWithPrefix("tf-acc-test-site")
-	rName := acctest.RandomWithPrefix("tf-acc-test-location-cf")
-	rCfName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_location"), "-", "_")
-
-	resource.ParallelTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			// カスタムフィールドを作成してロケーションに設定する
-			{
-				Config: providerConfig + fmt.Sprintf(`
-resource "netbox_site" "test" {
-  name   = %q
-  status = "active"
-}
-
-resource "netbox_custom_field" "test" {
-  name          = %q
-  type          = "text"
-  content_types = ["dcim.location"]
-}
-
-resource "netbox_location" "test_cf" {
-  name    = %q
-  site_id = netbox_site.test.id
-  status  = "active"
-
-  custom_fields = {
-    (netbox_custom_field.test.name) = "location-cf-value"
-  }
-}
-`, rSiteName, rCfName, rName),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("netbox_location.test_cf", "name", rName),
-					resource.TestCheckResourceAttrSet("netbox_location.test_cf", "id"),
-					resource.TestCheckResourceAttr("netbox_location.test_cf", fmt.Sprintf("custom_fields.%s", rCfName), "location-cf-value"),
-				),
-			},
-			// カスタムフィールド値を更新する
-			{
-				Config: providerConfig + fmt.Sprintf(`
-resource "netbox_site" "test" {
-  name   = %q
-  status = "active"
-}
-
-resource "netbox_custom_field" "test" {
-  name          = %q
-  type          = "text"
-  content_types = ["dcim.location"]
-}
-
-resource "netbox_location" "test_cf" {
-  name    = %q
-  site_id = netbox_site.test.id
-  status  = "active"
-
-  custom_fields = {
-    (netbox_custom_field.test.name) = "location-cf-updated"
-  }
-}
-`, rSiteName, rCfName, rName),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("netbox_location.test_cf", fmt.Sprintf("custom_fields.%s", rCfName), "location-cf-updated"),
-				),
-			},
-			// Delete testing automatically occurs in TestCase
-		},
-	})
-}
-
-// TestAccLocationResourceAutoSlug は slug 未指定時の自動生成を検証する acceptance test です。
-func TestAccLocationResourceAutoSlug(t *testing.T) {
-	rSiteName := acctest.RandomWithPrefix("tf-acc-test-site")
-	rName := acctest.RandomWithPrefix("tf-acc-test-location")
-
-	resource.ParallelTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			// slug を明示せずに作成し、Computed として返ってくることを確認
-			{
-				Config: providerConfig + fmt.Sprintf(`
-resource "netbox_site" "test" {
-  name   = %q
-  status = "active"
-}
-
-resource "netbox_location" "test" {
-  name    = %q
-  site_id = netbox_site.test.id
-  status  = "active"
-}
-`, rSiteName, rName),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("netbox_location.test", "name", rName),
-					resource.TestCheckResourceAttrSet("netbox_location.test", "slug"),
-					resource.TestCheckResourceAttrSet("netbox_location.test", "id"),
 				),
 			},
 			// Delete testing automatically occurs in TestCase
