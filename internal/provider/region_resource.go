@@ -20,76 +20,56 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-var _ resource.Resource = &siteResource{}
-var _ resource.ResourceWithConfigure = &siteResource{}
+var _ resource.Resource = &regionResource{}
+var _ resource.ResourceWithConfigure = &regionResource{}
 
-func NewSiteResource() resource.Resource {
-	return &siteResource{}
+func NewRegionResource() resource.Resource {
+	return &regionResource{}
 }
 
-type siteResource struct {
+type regionResource struct {
 	client *client.NetboxClient
 }
 
-type siteResourceModel struct {
-	Id              types.Int64  `tfsdk:"id"`
-	Name            types.String `tfsdk:"name"`
-	Slug            types.String `tfsdk:"slug"`
-	Status          types.String `tfsdk:"status"`
-	RegionId        types.Int64  `tfsdk:"region_id"`
-	Description     types.String `tfsdk:"description"`
-	Facility        types.String `tfsdk:"facility"`
-	TimeZone        types.String `tfsdk:"time_zone"`
-	PhysicalAddress types.String `tfsdk:"physical_address"`
-	CustomFields    types.Map    `tfsdk:"custom_fields"`
+type regionResourceModel struct {
+	Id           types.Int64  `tfsdk:"id"`
+	Name         types.String `tfsdk:"name"`
+	Slug         types.String `tfsdk:"slug"`
+	ParentId     types.Int64  `tfsdk:"parent_id"`
+	Description  types.String `tfsdk:"description"`
+	CustomFields types.Map    `tfsdk:"custom_fields"`
 }
 
-func (r *siteResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_site"
+func (r *regionResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_region"
 }
 
-func (r *siteResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *regionResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Manages a Site in Netbox.",
+		MarkdownDescription: "Manages a Region in Netbox.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
-				MarkdownDescription: "The numeric ID of the site.",
+				MarkdownDescription: "The numeric ID of the region.",
 				Computed:            true,
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.UseStateForUnknown(),
 				},
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Name of the site.",
+				MarkdownDescription: "Name of the region.",
 				Required:            true,
 			},
 			"slug": schema.StringAttribute{
-				MarkdownDescription: "URL-friendly unique shorthand for the site. If omitted, auto-generated from name.",
+				MarkdownDescription: "URL-friendly unique shorthand for the region. If omitted, auto-generated from name.",
 				Optional:            true,
 				Computed:            true,
 			},
-			"status": schema.StringAttribute{
-				MarkdownDescription: "The status of the site (e.g., active, planned, staging, decommissioning, retired).",
-				Optional:            true,
-			},
-			"region_id": schema.Int64Attribute{
-				MarkdownDescription: "The numeric ID of the region this site belongs to.",
+			"parent_id": schema.Int64Attribute{
+				MarkdownDescription: "The numeric ID of the parent region (for hierarchical regions).",
 				Optional:            true,
 			},
 			"description": schema.StringAttribute{
-				MarkdownDescription: "Description for the site.",
-				Optional:            true,
-			},
-			"facility": schema.StringAttribute{
-				MarkdownDescription: "Physical location of the site (e.g., data center name).",
-				Optional:            true,
-			},
-			"time_zone": schema.StringAttribute{
-				MarkdownDescription: "Time zone of the site (e.g., America/New_York).",
-				Optional:            true,
-			},
-			"physical_address": schema.StringAttribute{
-				MarkdownDescription: "Physical address of the site.",
+				MarkdownDescription: "Description for the region.",
 				Optional:            true,
 			},
 			"custom_fields": customFieldsSchema(),
@@ -97,7 +77,7 @@ func (r *siteResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 	}
 }
 
-func (r *siteResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+func (r *regionResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	if req.ProviderData == nil {
 		return
 	}
@@ -114,14 +94,13 @@ func (r *siteResource) Configure(_ context.Context, req resource.ConfigureReques
 	r.client = client
 }
 
-func (r *siteResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var plan siteResourceModel
+func (r *regionResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var plan regionResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Auto-generate slug from name if not provided
 	slug := plan.Slug.ValueString()
 	if plan.Slug.IsNull() || plan.Slug.IsUnknown() || slug == "" {
 		slug = slugify(plan.Name.ValueString())
@@ -131,23 +110,11 @@ func (r *siteResource) Create(ctx context.Context, req resource.CreateRequest, r
 		"name": plan.Name.ValueString(),
 		"slug": slug,
 	}
-	if !plan.Status.IsNull() && !plan.Status.IsUnknown() {
-		payload["status"] = plan.Status.ValueString()
-	}
-	if !plan.RegionId.IsNull() && !plan.RegionId.IsUnknown() {
-		payload["region"] = plan.RegionId.ValueInt64()
+	if !plan.ParentId.IsNull() && !plan.ParentId.IsUnknown() {
+		payload["parent"] = plan.ParentId.ValueInt64()
 	}
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		payload["description"] = plan.Description.ValueString()
-	}
-	if !plan.Facility.IsNull() && !plan.Facility.IsUnknown() {
-		payload["facility"] = plan.Facility.ValueString()
-	}
-	if !plan.TimeZone.IsNull() && !plan.TimeZone.IsUnknown() {
-		payload["time_zone"] = plan.TimeZone.ValueString()
-	}
-	if !plan.PhysicalAddress.IsNull() && !plan.PhysicalAddress.IsUnknown() {
-		payload["physical_address"] = plan.PhysicalAddress.ValueString()
 	}
 	if cf := customFieldsToPayload(ctx, r.client, plan.CustomFields, &resp.Diagnostics); cf != nil {
 		payload["custom_fields"] = cf
@@ -162,9 +129,9 @@ func (r *siteResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	bodyStr, err := r.client.Post(ctx, "api/dcim/sites/", bytes.NewReader(bodyBytes))
+	bodyStr, err := r.client.Post(ctx, "api/dcim/regions/", bytes.NewReader(bodyBytes))
 	if err != nil {
-		resp.Diagnostics.AddError("Error creating Site", err.Error())
+		resp.Diagnostics.AddError("Error creating Region", err.Error())
 		return
 	}
 
@@ -198,17 +165,17 @@ func (r *siteResource) Create(ctx context.Context, req resource.CreateRequest, r
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
-func (r *siteResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var state siteResourceModel
+func (r *regionResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var state regionResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	path := fmt.Sprintf("api/dcim/sites/%d/", state.Id.ValueInt64())
+	path := fmt.Sprintf("api/dcim/regions/%d/", state.Id.ValueInt64())
 	bodyStr, err := r.client.Get(ctx, path)
 	if err != nil {
-		tflog.Warn(ctx, "Could not read site, assuming it was deleted", map[string]interface{}{"error": err.Error()})
+		tflog.Warn(ctx, "Could not read region, assuming it was deleted", map[string]interface{}{"error": err.Error()})
 		resp.State.RemoveResource(ctx)
 		return
 	}
@@ -225,29 +192,15 @@ func (r *siteResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	if slugVal, ok := apiResponse["slug"].(string); ok {
 		state.Slug = types.StringValue(slugVal)
 	}
-	if statusMap, ok := apiResponse["status"].(map[string]interface{}); ok {
-		if val, ok := statusMap["value"].(string); ok && !state.Status.IsNull() {
-			state.Status = types.StringValue(val)
+	if parentMap, ok := apiResponse["parent"].(map[string]interface{}); ok {
+		if parentID, ok := parentMap["id"].(float64); ok {
+			state.ParentId = types.Int64Value(int64(parentID))
 		}
-	}
-	if regionMap, ok := apiResponse["region"].(map[string]interface{}); ok {
-		if regionID, ok := regionMap["id"].(float64); ok {
-			state.RegionId = types.Int64Value(int64(regionID))
-		}
-	} else if !state.RegionId.IsNull() {
-		state.RegionId = types.Int64Null()
+	} else if !state.ParentId.IsNull() {
+		state.ParentId = types.Int64Null()
 	}
 	if desc, ok := apiResponse["description"].(string); ok && !state.Description.IsNull() {
 		state.Description = types.StringValue(desc)
-	}
-	if facility, ok := apiResponse["facility"].(string); ok && !state.Facility.IsNull() {
-		state.Facility = types.StringValue(facility)
-	}
-	if tz, ok := apiResponse["time_zone"].(string); ok && !state.TimeZone.IsNull() {
-		state.TimeZone = types.StringValue(tz)
-	}
-	if addr, ok := apiResponse["physical_address"].(string); ok && !state.PhysicalAddress.IsNull() {
-		state.PhysicalAddress = types.StringValue(addr)
 	}
 
 	if cfRaw, ok := apiResponse["custom_fields"]; ok {
@@ -261,8 +214,8 @@ func (r *siteResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
-func (r *siteResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan, state siteResourceModel
+func (r *regionResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var plan, state regionResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
@@ -272,7 +225,6 @@ func (r *siteResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	payload := map[string]interface{}{}
 	if !plan.Name.Equal(state.Name) {
 		payload["name"] = plan.Name.ValueString()
-		// Re-generate slug if name changed and slug was auto-generated
 		if plan.Slug.IsNull() || plan.Slug.IsUnknown() {
 			payload["slug"] = slugify(plan.Name.ValueString())
 		}
@@ -280,27 +232,15 @@ func (r *siteResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	if !plan.Slug.Equal(state.Slug) && !plan.Slug.IsNull() && !plan.Slug.IsUnknown() {
 		payload["slug"] = plan.Slug.ValueString()
 	}
-	if !plan.Status.Equal(state.Status) {
-		payload["status"] = plan.Status.ValueString()
-	}
-	if !plan.RegionId.Equal(state.RegionId) {
-		if plan.RegionId.IsNull() {
-			payload["region"] = nil
+	if !plan.ParentId.Equal(state.ParentId) {
+		if plan.ParentId.IsNull() {
+			payload["parent"] = nil
 		} else {
-			payload["region"] = plan.RegionId.ValueInt64()
+			payload["parent"] = plan.ParentId.ValueInt64()
 		}
 	}
 	if !plan.Description.Equal(state.Description) {
 		payload["description"] = plan.Description.ValueString()
-	}
-	if !plan.Facility.Equal(state.Facility) {
-		payload["facility"] = plan.Facility.ValueString()
-	}
-	if !plan.TimeZone.Equal(state.TimeZone) {
-		payload["time_zone"] = plan.TimeZone.ValueString()
-	}
-	if !plan.PhysicalAddress.Equal(state.PhysicalAddress) {
-		payload["physical_address"] = plan.PhysicalAddress.ValueString()
 	}
 	if !plan.CustomFields.Equal(state.CustomFields) {
 		if cf := customFieldsToPayload(ctx, r.client, plan.CustomFields, &resp.Diagnostics); cf != nil {
@@ -318,14 +258,13 @@ func (r *siteResource) Update(ctx context.Context, req resource.UpdateRequest, r
 			return
 		}
 
-		path := fmt.Sprintf("api/dcim/sites/%d/", state.Id.ValueInt64())
+		path := fmt.Sprintf("api/dcim/regions/%d/", state.Id.ValueInt64())
 		bodyStr, err := r.client.Patch(ctx, path, bytes.NewReader(bodyBytes))
 		if err != nil {
-			resp.Diagnostics.AddError("Error updating Site", err.Error())
+			resp.Diagnostics.AddError("Error updating Region", err.Error())
 			return
 		}
 
-		// Computed フィールドを API レスポンスから更新する
 		var apiResponse map[string]interface{}
 		if err := json.Unmarshal([]byte(*bodyStr), &apiResponse); err != nil {
 			resp.Diagnostics.AddError("Error parsing update response", err.Error())
@@ -335,21 +274,20 @@ func (r *siteResource) Update(ctx context.Context, req resource.UpdateRequest, r
 			plan.Slug = types.StringValue(slugVal)
 		}
 	} else if plan.Slug.IsNull() || plan.Slug.IsUnknown() {
-		// 変更なしの場合は state の slug を保持する
 		plan.Slug = state.Slug
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
-func (r *siteResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var state siteResourceModel
+func (r *regionResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var state regionResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	path := fmt.Sprintf("api/dcim/sites/%d/", state.Id.ValueInt64())
+	path := fmt.Sprintf("api/dcim/regions/%d/", state.Id.ValueInt64())
 	err := r.client.Delete(ctx, path)
 	if err != nil {
 		tflog.Warn(ctx, "Delete failed, assuming already deleted", map[string]interface{}{"error": err.Error()})

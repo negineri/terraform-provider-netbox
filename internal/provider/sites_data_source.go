@@ -37,6 +37,7 @@ type siteModel struct {
 	Name            types.String `tfsdk:"name"`
 	Slug            types.String `tfsdk:"slug"`
 	Status          types.String `tfsdk:"status"`
+	RegionId        types.Int64  `tfsdk:"region_id"`
 	Description     types.String `tfsdk:"description"`
 	Facility        types.String `tfsdk:"facility"`
 	TimeZone        types.String `tfsdk:"time_zone"`
@@ -74,6 +75,10 @@ func (d *sitesDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, 
 						},
 						"status": schema.StringAttribute{
 							MarkdownDescription: "The status of the site.",
+							Computed:            true,
+						},
+						"region_id": schema.Int64Attribute{
+							MarkdownDescription: "The numeric ID of the region this site belongs to.",
 							Computed:            true,
 						},
 						"description": schema.StringAttribute{
@@ -137,6 +142,7 @@ func (d *sitesDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 		Name            string         `json:"name"`
 		Slug            string         `json:"slug"`
 		Status          map[string]any `json:"status"`
+		Region          map[string]any `json:"region"`
 		Description     string         `json:"description"`
 		Facility        string         `json:"facility"`
 		TimeZone        string         `json:"time_zone"`
@@ -168,6 +174,15 @@ func (d *sitesDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 			s.Status = types.StringValue(val)
 		} else {
 			s.Status = types.StringValue("")
+		}
+		if result.Region != nil {
+			if regionID, ok := result.Region["id"].(float64); ok {
+				s.RegionId = types.Int64Value(int64(regionID))
+			} else {
+				s.RegionId = types.Int64Null()
+			}
+		} else {
+			s.RegionId = types.Int64Null()
 		}
 		state.Sites = append(state.Sites, s)
 	}
