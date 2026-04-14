@@ -94,6 +94,66 @@ resource "netbox_vlan" "test" {
 	})
 }
 
+// TestAccVlanResourceWithCustomFields は custom_fields 属性の acceptance test です。
+func TestAccVlanResourceWithCustomFields(t *testing.T) {
+	rName := acctest.RandomWithPrefix("tf-acc-test-vlan-cf")
+	rCfName := acctest.RandomWithPrefix("tf_acc_cf_vlan")
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_custom_field" "test" {
+  name          = %q
+  type          = "text"
+  content_types = ["ipam.vlan"]
+}
+
+resource "netbox_vlan" "test_cf" {
+  name   = %q
+  vid    = 300
+  status = "active"
+
+  custom_fields = {
+    (netbox_custom_field.test.name) = "vlan-cf-value"
+  }
+}
+`, rCfName, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_vlan.test_cf", "name", rName),
+					resource.TestCheckResourceAttrSet("netbox_vlan.test_cf", "id"),
+					resource.TestCheckResourceAttr("netbox_vlan.test_cf", fmt.Sprintf("custom_fields.%s", rCfName), "vlan-cf-value"),
+				),
+			},
+			// カスタムフィールド値を更新する
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_custom_field" "test" {
+  name          = %q
+  type          = "text"
+  content_types = ["ipam.vlan"]
+}
+
+resource "netbox_vlan" "test_cf" {
+  name   = %q
+  vid    = 300
+  status = "active"
+
+  custom_fields = {
+    (netbox_custom_field.test.name) = "vlan-cf-updated"
+  }
+}
+`, rCfName, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_vlan.test_cf", fmt.Sprintf("custom_fields.%s", rCfName), "vlan-cf-updated"),
+				),
+			},
+			// Delete testing automatically occurs in TestCase
+		},
+	})
+}
+
 // TestAccVlanResourceWithGroup は group_id を使った acceptance test です。
 // VLAN group を作成してその配下に VLAN を所属させ、その後 group から切り離す。
 func TestAccVlanResourceWithGroup(t *testing.T) {

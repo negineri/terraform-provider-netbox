@@ -106,6 +106,74 @@ resource "netbox_device" "test" {
 	})
 }
 
+// TestAccDeviceResourceWithCustomFields は custom_fields 属性の acceptance test です。
+// 実行前に NETBOX_SERVER_URL / NETBOX_KEY_V2 / NETBOX_TOKEN_V2 環境変数と、
+// NetBox 上に device_type_id=1, role_id=1, site_id=1 が存在している必要があります。
+func TestAccDeviceResourceWithCustomFields(t *testing.T) {
+	rName := acctest.RandomWithPrefix("tf-acc-test-device-cf")
+	rCfName := acctest.RandomWithPrefix("tf_acc_cf_device")
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// カスタムフィールドを作成してデバイスに設定する
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_custom_field" "test" {
+  name          = %q
+  type          = "text"
+  content_types = ["dcim.device"]
+}
+
+resource "netbox_device" "test_cf" {
+  name           = %q
+  device_type_id = 1
+  role_id        = 1
+  site_id        = 1
+  status         = "active"
+
+  custom_fields = {
+    (netbox_custom_field.test.name) = "initial-value"
+  }
+}
+`, rCfName, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_device.test_cf", "name", rName),
+					resource.TestCheckResourceAttrSet("netbox_device.test_cf", "id"),
+					resource.TestCheckResourceAttrSet("netbox_device.test_cf", fmt.Sprintf("custom_fields.%s", rCfName)),
+				),
+			},
+			// カスタムフィールド値を更新する
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_custom_field" "test" {
+  name          = %q
+  type          = "text"
+  content_types = ["dcim.device"]
+}
+
+resource "netbox_device" "test_cf" {
+  name           = %q
+  device_type_id = 1
+  role_id        = 1
+  site_id        = 1
+  status         = "active"
+
+  custom_fields = {
+    (netbox_custom_field.test.name) = "updated-value"
+  }
+}
+`, rCfName, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_device.test_cf", "name", rName),
+					resource.TestCheckResourceAttr("netbox_device.test_cf", fmt.Sprintf("custom_fields.%s", rCfName), "updated-value"),
+				),
+			},
+			// Delete testing automatically occurs in TestCase
+		},
+	})
+}
+
 // TestAccDeviceResourceWithTags は tags 属性の acceptance test です。
 // 実行前に NETBOX_SERVER_URL / NETBOX_KEY_V2 / NETBOX_TOKEN_V2 環境変数と、
 // NetBox 上に device_type_id=1, role_id=1, site_id=1, tag_id=37 が存在している必要があります。
