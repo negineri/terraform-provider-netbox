@@ -16,7 +16,7 @@ import (
 func TestAccPrefixResourceWithCustomFields(t *testing.T) {
 	rCfName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_prefix"), "-", "_")
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
@@ -70,7 +70,7 @@ resource "netbox_prefix" "test_cf" {
 }
 
 func TestAccPrefixResource(t *testing.T) {
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing

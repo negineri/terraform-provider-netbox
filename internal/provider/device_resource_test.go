@@ -21,7 +21,7 @@ func TestAccDeviceResource(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-device")
 	rNameRenamed := rName + "-renamed"
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing
@@ -114,7 +114,7 @@ func TestAccDeviceResourceWithCustomFields(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-device-cf")
 	rCfName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_device"), "-", "_")
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// カスタムフィールドを作成してデバイスに設定する
@@ -181,7 +181,7 @@ func TestAccDeviceResourceWithIntegerCustomField(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-device-int-cf")
 	rCfName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_int_dev"), "-", "_")
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// integer カスタムフィールドに数値を設定する
@@ -247,7 +247,7 @@ func TestAccDeviceResourceWithBooleanCustomField(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-device-bool-cf")
 	rCfName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_bool_dev"), "-", "_")
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// boolean カスタムフィールドに true を設定する
@@ -312,7 +312,7 @@ func TestAccDeviceResourceWithTextCustomField(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-device-text-cf")
 	rCfName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_text_dev"), "-", "_")
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// text フィールドに数値文字列 "42" を設定 → "42" のまま（integer 扱いされない）
@@ -351,7 +351,7 @@ func TestAccDeviceResourceWithTextTrueCustomField(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-device-texttrue-cf")
 	rCfName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_texttrue_dev"), "-", "_")
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// text フィールドに "true" を設定 → "true" のまま（bool 扱いされない）
@@ -390,7 +390,7 @@ resource "netbox_device" "test_texttrue_cf" {
 func TestAccDeviceResourceWithTags(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-device-tags")
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create with tags

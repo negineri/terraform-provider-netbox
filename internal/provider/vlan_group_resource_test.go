@@ -19,7 +19,7 @@ func TestAccVlanGroupResource(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-vlan-group")
 	rNameRenamed := rName + "-renamed"
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing
@@ -102,7 +102,7 @@ func TestAccVlanGroupResourceWithScope(t *testing.T) {
 	rSiteName := acctest.RandomWithPrefix("tf-acc-test-site-for-vg")
 	rGroupName := acctest.RandomWithPrefix("tf-acc-test-vlan-group")
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create VLAN group scoped to a site
@@ -136,7 +136,7 @@ resource "netbox_vlan_group" "test" {
 func TestAccVlanGroupResourceAutoSlug(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-vlan-group")
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{

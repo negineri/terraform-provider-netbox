@@ -19,7 +19,7 @@ func TestAccCustomFieldResource(t *testing.T) {
 	var capturedID string
 	rName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf"), "-", "_")
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing
@@ -113,7 +113,7 @@ resource "netbox_custom_field" "test" {
 func TestAccCustomFieldResourceInteger(t *testing.T) {
 	rName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_int"), "-", "_")
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
@@ -139,7 +139,7 @@ resource "netbox_custom_field" "test" {
 func TestAccCustomFieldResourceBoolean(t *testing.T) {
 	rName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_bool"), "-", "_")
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
@@ -163,6 +163,8 @@ resource "netbox_custom_field" "test" {
 
 // TestAccCustomFieldResourceAdvanced は高度な属性（group_name, ui_visible, ui_editable, is_cloneable）を
 // テストします。Netbox 4.x では select 型が choice_set を要求するため longtext 型を使用します。
+// required=true + dcim.device を使うため、並列実行すると他のデバイス作成テストが
+// required フィールド未指定で失敗する。そのため意図的に逐次実行（resource.Test）にしています。
 func TestAccCustomFieldResourceAdvanced(t *testing.T) {
 	rName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_adv"), "-", "_")
 
@@ -175,7 +177,7 @@ func TestAccCustomFieldResourceAdvanced(t *testing.T) {
 resource "netbox_custom_field" "test" {
   name          = %q
   type          = "longtext"
-  content_types = ["dcim.device"]
+  content_types = ["dcim.rack"]
   required      = true
   group_name    = "Advanced"
   ui_visible    = "always"
@@ -201,7 +203,7 @@ resource "netbox_custom_field" "test" {
 resource "netbox_custom_field" "test" {
   name          = %q
   type          = "longtext"
-  content_types = ["dcim.device"]
+  content_types = ["dcim.rack"]
   required      = true
   group_name    = "Updated"
 }

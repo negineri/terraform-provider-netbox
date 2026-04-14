@@ -17,7 +17,7 @@ import (
 func TestAccDevicePrimaryIPResource(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-primary-ip")
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create: IPv4 と IPv6 の両方を primary IP として設定する

@@ -20,7 +20,7 @@ func TestAccSiteResource(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-site")
 	rNameRenamed := rName + "-renamed"
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing
@@ -112,7 +112,7 @@ func TestAccSiteResourceWithCustomFields(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-site-cf")
 	rCfName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_site"), "-", "_")
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// カスタムフィールドを作成してサイトに設定する
@@ -170,7 +170,7 @@ resource "netbox_site" "test_cf" {
 func TestAccSiteResourceAutoSlug(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-site")
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// slug を明示せずに作成し、Computed として返ってくることを確認

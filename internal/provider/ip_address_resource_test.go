@@ -13,7 +13,7 @@ import (
 )
 
 func TestAccIpAddressResource(t *testing.T) {
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing
@@ -61,7 +61,7 @@ resource "netbox_ip_address" "test" {
 func TestAccIpAddressResourceWithCustomFields(t *testing.T) {
 	rCfName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_ipaddr"), "-", "_")
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
@@ -120,7 +120,7 @@ resource "netbox_ip_address" "test_cf" {
 func TestAccIpAddressResourceWithInterface(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-device-ipaddr")
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create with interface assignment
