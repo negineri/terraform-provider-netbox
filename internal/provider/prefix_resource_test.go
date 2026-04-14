@@ -12,13 +12,47 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
-// TestAccPrefixResourceWithCustomFields は custom_fields 属性の acceptance test です。
-func TestAccPrefixResourceWithCustomFields(t *testing.T) {
+// TestAccPrefixResource は netbox_prefix の acceptance test です。
+// CRUD・custom_fields を一連のステップで検証します。
+func TestAccPrefixResource(t *testing.T) {
 	rCfName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_prefix"), "-", "_")
 
 	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
+			// Create and Read testing
+			{
+				Config: providerConfig + `
+resource "netbox_prefix" "test" {
+  prefix      = "10.10.0.0/24"
+  status      = "active"
+  description = "terraform test prefix"
+}
+`,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_prefix.test", "prefix", "10.10.0.0/24"),
+					resource.TestCheckResourceAttr("netbox_prefix.test", "status", "active"),
+					resource.TestCheckResourceAttr("netbox_prefix.test", "description", "terraform test prefix"),
+					resource.TestCheckResourceAttrSet("netbox_prefix.test", "id"),
+				),
+			},
+			// Update and Read testing
+			{
+				Config: providerConfig + `
+resource "netbox_prefix" "test" {
+  prefix      = "10.10.0.0/24"
+  status      = "reserved"
+  description = "terraform test prefix updated"
+}
+`,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_prefix.test", "prefix", "10.10.0.0/24"),
+					resource.TestCheckResourceAttr("netbox_prefix.test", "status", "reserved"),
+					resource.TestCheckResourceAttr("netbox_prefix.test", "description", "terraform test prefix updated"),
+					resource.TestCheckResourceAttrSet("netbox_prefix.test", "id"),
+				),
+			},
+			// Custom fields: カスタムフィールドを設定する
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_custom_field" "test" {
@@ -42,7 +76,7 @@ resource "netbox_prefix" "test_cf" {
 					resource.TestCheckResourceAttr("netbox_prefix.test_cf", fmt.Sprintf("custom_fields.%s", rCfName), "prefix-cf-value"),
 				),
 			},
-			// カスタムフィールド値を更新する
+			// Custom fields: 値を更新する
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_custom_field" "test" {
@@ -62,47 +96,6 @@ resource "netbox_prefix" "test_cf" {
 `, rCfName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_prefix.test_cf", fmt.Sprintf("custom_fields.%s", rCfName), "prefix-cf-updated"),
-				),
-			},
-			// Delete testing automatically occurs in TestCase
-		},
-	})
-}
-
-func TestAccPrefixResource(t *testing.T) {
-	resource.ParallelTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			// Create and Read testing
-			{
-				Config: providerConfig + `
-resource "netbox_prefix" "test" {
-  prefix      = "10.0.0.0/24"
-  status      = "active"
-  description = "terraform test prefix"
-}
-`,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("netbox_prefix.test", "prefix", "10.0.0.0/24"),
-					resource.TestCheckResourceAttr("netbox_prefix.test", "status", "active"),
-					resource.TestCheckResourceAttr("netbox_prefix.test", "description", "terraform test prefix"),
-					resource.TestCheckResourceAttrSet("netbox_prefix.test", "id"),
-				),
-			},
-			// Update and Read testing
-			{
-				Config: providerConfig + `
-resource "netbox_prefix" "test" {
-  prefix      = "10.0.0.0/24"
-  status      = "reserved"
-  description = "terraform test prefix updated"
-}
-`,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("netbox_prefix.test", "prefix", "10.0.0.0/24"),
-					resource.TestCheckResourceAttr("netbox_prefix.test", "status", "reserved"),
-					resource.TestCheckResourceAttr("netbox_prefix.test", "description", "terraform test prefix updated"),
-					resource.TestCheckResourceAttrSet("netbox_prefix.test", "id"),
 				),
 			},
 			// Delete testing automatically occurs in TestCase

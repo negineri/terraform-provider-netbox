@@ -13,6 +13,7 @@ import (
 )
 
 // TestAccDeviceRoleResource は netbox_device_role の acceptance test です。
+// slug 未指定時の自動生成・CRUD・rename を一連のステップで検証します。
 // 実行前に NETBOX_SERVER_URL / NETBOX_KEY_V2 / NETBOX_TOKEN_V2 環境変数が必要です。
 func TestAccDeviceRoleResource(t *testing.T) {
 	var capturedID string
@@ -22,7 +23,21 @@ func TestAccDeviceRoleResource(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
-			// Create and Read testing
+			// AutoSlug: slug 未指定時に自動生成されることを確認する
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_device_role" "test" {
+  name  = %q
+  color = "aa1409"
+}
+`, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_device_role.test", "name", rName),
+					resource.TestCheckResourceAttrSet("netbox_device_role.test", "slug"),
+					resource.TestCheckResourceAttrSet("netbox_device_role.test", "id"),
+				),
+			},
+			// Create and Read testing (with explicit slug)
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_device_role" "test" {
@@ -90,31 +105,6 @@ resource "netbox_device_role" "test" {
 						}
 						return nil
 					},
-				),
-			},
-			// Delete testing automatically occurs in TestCase
-		},
-	})
-}
-
-// TestAccDeviceRoleResourceAutoSlug は slug 未指定時の自動生成を検証する acceptance test です。
-func TestAccDeviceRoleResourceAutoSlug(t *testing.T) {
-	rName := acctest.RandomWithPrefix("tf-acc-test-device-role")
-
-	resource.ParallelTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			{
-				Config: providerConfig + fmt.Sprintf(`
-resource "netbox_device_role" "test" {
-  name  = %q
-  color = "aa1409"
-}
-`, rName),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("netbox_device_role.test", "name", rName),
-					resource.TestCheckResourceAttrSet("netbox_device_role.test", "slug"),
-					resource.TestCheckResourceAttrSet("netbox_device_role.test", "id"),
 				),
 			},
 			// Delete testing automatically occurs in TestCase

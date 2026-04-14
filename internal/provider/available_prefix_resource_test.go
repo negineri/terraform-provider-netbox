@@ -17,7 +17,7 @@ func TestAccAvailablePrefixResource(t *testing.T) {
 			{
 				Config: providerConfig + `
 resource "netbox_prefix" "parent" {
-  prefix      = "10.0.0.0/24"
+  prefix      = "192.0.2.0/24"
   status      = "active"
   description = "terraform test parent prefix"
 }
@@ -42,7 +42,7 @@ resource "netbox_available_prefix" "test" {
 			{
 				Config: providerConfig + `
 resource "netbox_prefix" "parent" {
-  prefix      = "10.0.0.0/24"
+  prefix      = "192.0.2.0/24"
   status      = "active"
   description = "terraform test parent prefix"
 }

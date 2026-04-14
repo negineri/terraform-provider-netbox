@@ -13,16 +13,18 @@ import (
 )
 
 // TestAccTagResource は acceptance test です。
+// auto-slug・CRUD・explicit slug・rename を一連のステップで検証します。
 // 実行前に NETBOX_SERVER_URL / NETBOX_KEY_V2 / NETBOX_TOKEN_V2 環境変数が必要です。
 func TestAccTagResource(t *testing.T) {
 	var capturedID string
 	rName := acctest.RandomWithPrefix("tf-acc-test-tag")
+	rSlug := "custom-slug-" + acctest.RandString(8)
 	rNameRenamed := rName + "-renamed"
 
 	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
-			// Create and Read testing
+			// Create (auto-slug): slug 未指定時に自動生成されることを確認する
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_tag" "test" {
@@ -47,17 +49,31 @@ resource "netbox_tag" "test" {
 					},
 				),
 			},
-			// Update and Read testing
+			// Update (explicit slug): slug を明示的に指定する
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_tag" "test" {
+  name  = %q
+  color = "aa1409"
+  slug  = %q
+}
+`, rName, rSlug),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_tag.test", "name", rName),
+					resource.TestCheckResourceAttr("netbox_tag.test", "slug", rSlug),
+				),
+			},
+			// Update: color と description を変更する
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_tag" "test" {
   name        = %q
   color       = "4caf50"
+  slug        = %q
   description = "terraform test tag updated"
 }
-`, rName),
+`, rName, rSlug),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("netbox_tag.test", "name", rName),
 					resource.TestCheckResourceAttr("netbox_tag.test", "color", "4caf50"),
 					resource.TestCheckResourceAttr("netbox_tag.test", "description", "terraform test tag updated"),
 					resource.TestCheckResourceAttrSet("netbox_tag.test", "id"),
@@ -67,11 +83,11 @@ resource "netbox_tag" "test" {
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_tag" "test" {
-  name        = %q
-  color       = "4caf50"
-  description = "terraform test tag updated"
+  name  = %q
+  color = "4caf50"
+  slug  = %q
 }
-`, rNameRenamed),
+`, rNameRenamed, rSlug),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_tag.test", "name", rNameRenamed),
 					func(s *terraform.State) error {
@@ -84,32 +100,6 @@ resource "netbox_tag" "test" {
 						}
 						return nil
 					},
-				),
-			},
-			// Delete testing automatically occurs in TestCase
-		},
-	})
-}
-
-// TestAccTagResourceWithSlug は slug を明示的に指定する acceptance test です。
-func TestAccTagResourceWithSlug(t *testing.T) {
-	rName := acctest.RandomWithPrefix("tf-acc-test-tag-slug")
-	rSlug := "custom-slug-" + acctest.RandString(8)
-
-	resource.ParallelTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			{
-				Config: providerConfig + fmt.Sprintf(`
-resource "netbox_tag" "test_slug" {
-  name = %q
-  slug = %q
-}
-`, rName, rSlug),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("netbox_tag.test_slug", "name", rName),
-					resource.TestCheckResourceAttr("netbox_tag.test_slug", "slug", rSlug),
-					resource.TestCheckResourceAttrSet("netbox_tag.test_slug", "id"),
 				),
 			},
 			// Delete testing automatically occurs in TestCase

@@ -108,57 +108,43 @@ resource "netbox_custom_field" "test" {
 	})
 }
 
-// TestAccCustomFieldResourceInteger は integer 型カスタムフィールドの acceptance test です。
-// integer 型フィールドに数値文字列を設定したとき、API への送信・読み返しが正しく行われることを検証します。
-func TestAccCustomFieldResourceInteger(t *testing.T) {
-	rName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_int"), "-", "_")
+// TestAccCustomFieldResourceByType は各 type の作成・確認を検証するテーブル駆動テストです。
+// integer / boolean 型がそれぞれ正しく作成されることを確認します。
+func TestAccCustomFieldResourceByType(t *testing.T) {
+	tests := []struct {
+		name   string
+		cfType string
+	}{
+		{name: "integer", cfType: "integer"},
+		{name: "boolean", cfType: "boolean"},
+	}
 
-	resource.ParallelTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			{
-				Config: providerConfig + fmt.Sprintf(`
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			rName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_"+tc.name), "-", "_")
+
+			resource.ParallelTest(t, resource.TestCase{
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Steps: []resource.TestStep{
+					{
+						Config: providerConfig + fmt.Sprintf(`
 resource "netbox_custom_field" "test" {
   name          = %q
-  type          = "integer"
+  type          = %q
   content_types = ["dcim.device"]
 }
-`, rName),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("netbox_custom_field.test", "name", rName),
-					resource.TestCheckResourceAttr("netbox_custom_field.test", "type", "integer"),
-					resource.TestCheckResourceAttrSet("netbox_custom_field.test", "id"),
-				),
-			},
-			// Delete testing automatically occurs in TestCase
-		},
-	})
-}
-
-// TestAccCustomFieldResourceBoolean は boolean 型カスタムフィールドの acceptance test です。
-func TestAccCustomFieldResourceBoolean(t *testing.T) {
-	rName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_bool"), "-", "_")
-
-	resource.ParallelTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			{
-				Config: providerConfig + fmt.Sprintf(`
-resource "netbox_custom_field" "test" {
-  name          = %q
-  type          = "boolean"
-  content_types = ["dcim.device"]
-}
-`, rName),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("netbox_custom_field.test", "name", rName),
-					resource.TestCheckResourceAttr("netbox_custom_field.test", "type", "boolean"),
-					resource.TestCheckResourceAttrSet("netbox_custom_field.test", "id"),
-				),
-			},
-			// Delete testing automatically occurs in TestCase
-		},
-	})
+`, rName, tc.cfType),
+						Check: resource.ComposeAggregateTestCheckFunc(
+							resource.TestCheckResourceAttr("netbox_custom_field.test", "name", rName),
+							resource.TestCheckResourceAttr("netbox_custom_field.test", "type", tc.cfType),
+							resource.TestCheckResourceAttrSet("netbox_custom_field.test", "id"),
+						),
+					},
+					// Delete testing automatically occurs in TestCase
+				},
+			})
+		})
+	}
 }
 
 // TestAccCustomFieldResourceAdvanced は高度な属性（group_name, ui_visible, ui_editable, is_cloneable）を
