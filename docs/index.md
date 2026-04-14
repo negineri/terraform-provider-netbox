@@ -25,6 +25,7 @@ provider "netbox" {
 
 ### Optional
 
-- `key_v2` (String) API key for Netbox. May also be provided via NETBOX_KEY_V2 environment variable.
+- `key_v2` (String) API key for Netbox v2 token. May also be provided via NETBOX_KEY_V2 environment variable.
 - `server_url` (String) URL for Netbox API. May also be provided via NETBOX_SERVER_URL environment variable.
-- `token_v2` (String, Sensitive) API token for Netbox. May also be provided via NETBOX_TOKEN_V2 environment variable.
+- `token` (String, Sensitive) API v1 token for Netbox. May also be provided via NETBOX_TOKEN environment variable. Use this or the key_v2/token_v2 pair.
+- `token_v2` (String, Sensitive) API token for Netbox v2 token. May also be provided via NETBOX_TOKEN_V2 environment variable.
