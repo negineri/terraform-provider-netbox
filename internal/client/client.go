@@ -21,10 +21,10 @@ import (
 type NetboxClient struct {
 	retryClient *retryablehttp.Client
 	baseURL     string
-	token       string
+	authHeader  string
 }
 
-// NewNetboxClient はトークンを受け取り、認証付きのクライアントを生成します。
+// NewNetboxClient は v2 トークン（keyV2 + tokenV2）を受け取り、認証付きのクライアントを生成します。
 func NewNetboxClient(serverURL string, keyV2 string, tokenV2 string) *NetboxClient {
 	rc := retryablehttp.NewClient()
 	rc.RetryMax = 5
@@ -70,7 +70,54 @@ func NewNetboxClient(serverURL string, keyV2 string, tokenV2 string) *NetboxClie
 	return &NetboxClient{
 		retryClient: rc,
 		baseURL:     serverURL,
-		token:       "nbt_" + keyV2 + "." + tokenV2,
+		authHeader:  "Bearer nbt_" + keyV2 + "." + tokenV2,
+	}
+}
+
+// NewNetboxClientV1 は v1 トークンを受け取り、認証付きのクライアントを生成します。
+func NewNetboxClientV1(serverURL string, token string) *NetboxClient {
+	rc := retryablehttp.NewClient()
+	rc.RetryMax = 5
+	rc.RetryWaitMin = 1 * time.Second
+	rc.RetryWaitMax = 60 * time.Second
+	rc.Logger = nil
+	rc.HTTPClient.Timeout = 30 * time.Second
+
+	rc.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
+		if err != nil {
+			var urlErr *url.Error
+			if errors.As(err, &urlErr) && urlErr.Timeout() {
+				return true, nil
+			}
+		}
+		if resp != nil && resp.StatusCode == http.StatusTooManyRequests {
+			return true, nil
+		}
+		return retryablehttp.DefaultRetryPolicy(ctx, resp, err)
+	}
+
+	rc.Backoff = func(minWait, maxWait time.Duration, attemptNum int, resp *http.Response) time.Duration {
+		if resp != nil && resp.StatusCode == http.StatusTooManyRequests {
+			if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
+				if seconds, err := strconv.Atoi(retryAfter); err == nil {
+					d := time.Duration(seconds) * time.Second
+					if d > maxWait {
+						return maxWait
+					}
+					if d > 0 {
+						return d
+					}
+				}
+			}
+			return maxWait
+		}
+		return retryablehttp.LinearJitterBackoff(minWait, maxWait, attemptNum, resp)
+	}
+
+	return &NetboxClient{
+		retryClient: rc,
+		baseURL:     serverURL,
+		authHeader:  "Token " + token,
 	}
 }
 
@@ -89,7 +136,7 @@ func (c *NetboxClient) newRequest(ctx context.Context, method, path string, body
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Authorization", c.authHeader)
 	req.Header.Set("User-Agent", "terraform-provider-netbox/1.0.0")
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
