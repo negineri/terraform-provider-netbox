@@ -137,6 +137,7 @@ resource "netbox_device" "test" {
 // - boolean 型: "true"/"false" が送信・読み返しともに同じ値
 // - text 型に数値文字列: integer に変換されない（回帰テスト）
 // - text 型に "true": boolean に変換されない（回帰テスト）
+
 func TestAccDeviceResourceWithTypedCustomFields(t *testing.T) {
 	tests := []struct {
 		name         string
