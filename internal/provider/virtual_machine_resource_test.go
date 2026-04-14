@@ -21,7 +21,7 @@ func TestAccVirtualMachineResource(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-vm")
 	rNameRenamed := rName + "-renamed"
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing
@@ -118,7 +118,7 @@ func TestAccVirtualMachineResourceWithCustomFields(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-vm-cf")
 	rCfName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_vm"), "-", "_")
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
@@ -178,7 +178,7 @@ resource "netbox_virtual_machine" "test_cf" {
 func TestAccVirtualMachineResourceWithoutCluster(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-vm-nocluster")
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create with site_id only (no cluster_id)
@@ -209,7 +209,7 @@ resource "netbox_virtual_machine" "test_nocluster" {
 func TestAccVirtualMachineResourceWithTags(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-vm-tags")
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create with tags

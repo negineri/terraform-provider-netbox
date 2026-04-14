@@ -20,7 +20,7 @@ func TestAccVlanResource(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-vlan")
 	rNameRenamed := rName + "-renamed"
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing
@@ -100,7 +100,7 @@ func TestAccVlanResourceWithCustomFields(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-vlan-cf")
 	rCfName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_vlan"), "-", "_")
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
@@ -161,7 +161,7 @@ func TestAccVlanResourceWithGroup(t *testing.T) {
 	rGroupName := acctest.RandomWithPrefix("tf-acc-test-vlan-group")
 	rVlanName := acctest.RandomWithPrefix("tf-acc-test-vlan")
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// VLAN group 配下に VLAN を作成

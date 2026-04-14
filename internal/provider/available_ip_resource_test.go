@@ -12,7 +12,7 @@ import (
 )
 
 func TestAccAvailableIPResource(t *testing.T) {
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing
@@ -64,7 +64,7 @@ resource "netbox_available_ip" "test" {
 func TestAccAvailableIPResourceWithInterface(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-device-availip")
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create with interface and dns_name

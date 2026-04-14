@@ -19,7 +19,7 @@ func TestAccTagResource(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-tag")
 	rNameRenamed := rName + "-renamed"
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing
@@ -96,7 +96,7 @@ func TestAccTagResourceWithSlug(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-tag-slug")
 	rSlug := "custom-slug-" + acctest.RandString(8)
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
