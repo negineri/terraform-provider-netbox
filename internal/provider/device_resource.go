@@ -40,6 +40,7 @@ type deviceResourceModel struct {
 	Status       types.String `tfsdk:"status"`
 	Description  types.String `tfsdk:"description"`
 	Tags         types.List   `tfsdk:"tags"`
+	CustomFields types.Map    `tfsdk:"custom_fields"`
 }
 
 func (r *deviceResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -86,6 +87,7 @@ func (r *deviceResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				MarkdownDescription: "List of tag IDs to assign to the device.",
 				Optional:            true,
 			},
+			"custom_fields": customFieldsSchema(),
 		},
 	}
 }
@@ -138,6 +140,12 @@ func (r *deviceResource) Create(ctx context.Context, req resource.CreateRequest,
 		}
 		payload["tags"] = tags
 	}
+	if cf := customFieldsToPayload(ctx, plan.CustomFields, &resp.Diagnostics); cf != nil {
+		payload["custom_fields"] = cf
+	}
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	bodyBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -163,6 +171,16 @@ func (r *deviceResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 	plan.Id = types.Int64Value(int64(idFloat))
+
+	if cfRaw, ok := apiResponse["custom_fields"]; ok {
+		cf, diags := customFieldsFromAPI(cfRaw)
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			plan.CustomFields = cf
+		}
+	} else {
+		plan.CustomFields = types.MapValueMust(types.StringType, map[string]attr.Value{})
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -238,6 +256,14 @@ func (r *deviceResource) Read(ctx context.Context, req resource.ReadRequest, res
 		}
 	}
 
+	if cfRaw, ok := apiResponse["custom_fields"]; ok {
+		cf, diags := customFieldsFromAPI(cfRaw)
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			state.CustomFields = cf
+		}
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -282,6 +308,14 @@ func (r *deviceResource) Update(ctx context.Context, req resource.UpdateRequest,
 			payload["tags"] = tags
 		} else {
 			payload["tags"] = []map[string]interface{}{}
+		}
+	}
+	if !plan.CustomFields.Equal(state.CustomFields) {
+		if cf := customFieldsToPayload(ctx, plan.CustomFields, &resp.Diagnostics); cf != nil {
+			payload["custom_fields"] = cf
+		}
+		if resp.Diagnostics.HasError() {
+			return
 		}
 	}
 

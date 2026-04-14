@@ -11,6 +11,7 @@ import (
 
 	"terraform-provider-netbox/internal/client"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
@@ -31,12 +32,13 @@ type vlanResource struct {
 }
 
 type vlanResourceModel struct {
-	Id          types.Int64  `tfsdk:"id"`
-	Name        types.String `tfsdk:"name"`
-	Vid         types.Int64  `tfsdk:"vid"`
-	Status      types.String `tfsdk:"status"`
-	Description types.String `tfsdk:"description"`
-	GroupId     types.Int64  `tfsdk:"group_id"`
+	Id           types.Int64  `tfsdk:"id"`
+	Name         types.String `tfsdk:"name"`
+	Vid          types.Int64  `tfsdk:"vid"`
+	Status       types.String `tfsdk:"status"`
+	Description  types.String `tfsdk:"description"`
+	GroupId      types.Int64  `tfsdk:"group_id"`
+	CustomFields types.Map    `tfsdk:"custom_fields"`
 }
 
 func (r *vlanResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -74,6 +76,7 @@ func (r *vlanResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				MarkdownDescription: "The ID of the VLAN group this VLAN belongs to.",
 				Optional:            true,
 			},
+			"custom_fields": customFieldsSchema(),
 		},
 	}
 }
@@ -113,6 +116,12 @@ func (r *vlanResource) Create(ctx context.Context, req resource.CreateRequest, r
 	if !plan.GroupId.IsNull() && !plan.GroupId.IsUnknown() {
 		payload["group"] = map[string]interface{}{"id": plan.GroupId.ValueInt64()}
 	}
+	if cf := customFieldsToPayload(ctx, plan.CustomFields, &resp.Diagnostics); cf != nil {
+		payload["custom_fields"] = cf
+	}
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	bodyBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -138,6 +147,16 @@ func (r *vlanResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 	plan.Id = types.Int64Value(int64(idFloat))
+
+	if cfRaw, ok := apiResponse["custom_fields"]; ok {
+		cf, diags := customFieldsFromAPI(cfRaw)
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			plan.CustomFields = cf
+		}
+	} else {
+		plan.CustomFields = types.MapValueMust(types.StringType, map[string]attr.Value{})
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -183,6 +202,14 @@ func (r *vlanResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		}
 	}
 
+	if cfRaw, ok := apiResponse["custom_fields"]; ok {
+		cf, diags := customFieldsFromAPI(cfRaw)
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			state.CustomFields = cf
+		}
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -212,6 +239,14 @@ func (r *vlanResource) Update(ctx context.Context, req resource.UpdateRequest, r
 			payload["group"] = nil
 		} else {
 			payload["group"] = map[string]interface{}{"id": plan.GroupId.ValueInt64()}
+		}
+	}
+	if !plan.CustomFields.Equal(state.CustomFields) {
+		if cf := customFieldsToPayload(ctx, plan.CustomFields, &resp.Diagnostics); cf != nil {
+			payload["custom_fields"] = cf
+		}
+		if resp.Diagnostics.HasError() {
+			return
 		}
 	}
 

@@ -45,6 +45,7 @@ output "allocated_ip" {
 
 ### Optional
 
+- `custom_fields` (Map of String) Custom field values as a map of field name to string value.
 - `description` (String) Description for the prefix.
 
 ### Read-Only

@@ -32,6 +32,7 @@ resource "netbox_vlan" "example" {
 
 ### Optional
 
+- `custom_fields` (Map of String) Custom field values as a map of field name to string value.
 - `description` (String) Description for the VLAN.
 - `group_id` (Number) The ID of the VLAN group this VLAN belongs to.
 

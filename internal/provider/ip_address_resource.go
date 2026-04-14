@@ -11,6 +11,7 @@ import (
 
 	"terraform-provider-netbox/internal/client"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
@@ -40,6 +41,7 @@ type ipAddressResourceModel struct {
 	Id            types.Int64  `tfsdk:"id"`
 	InterfaceId   types.Int64  `tfsdk:"interface_id"`
 	InterfaceType types.String `tfsdk:"interface_type"`
+	CustomFields  types.Map    `tfsdk:"custom_fields"`
 }
 
 func (r *ipAddressResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -86,6 +88,7 @@ func (r *ipAddressResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 				Computed:            true,
 				Default:             stringdefault.StaticString("dcim.interface"),
 			},
+			"custom_fields": customFieldsSchema(),
 		},
 	}
 }
@@ -132,6 +135,12 @@ func (r *ipAddressResource) Create(ctx context.Context, req resource.CreateReque
 		}
 		payload["assigned_object_type"] = ifType
 	}
+	if cf := customFieldsToPayload(ctx, plan.CustomFields, &resp.Diagnostics); cf != nil {
+		payload["custom_fields"] = cf
+	}
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	bodyBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -163,6 +172,16 @@ func (r *ipAddressResource) Create(ctx context.Context, req resource.CreateReque
 	// Get saved address from NetBox (can include normalized mask)
 	if address, ok := apiResponse["address"].(string); ok {
 		plan.IpAddress = types.StringValue(address)
+	}
+
+	if cfRaw, ok := apiResponse["custom_fields"]; ok {
+		cf, diags := customFieldsFromAPI(cfRaw)
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			plan.CustomFields = cf
+		}
+	} else {
+		plan.CustomFields = types.MapValueMust(types.StringType, map[string]attr.Value{})
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
@@ -214,6 +233,14 @@ func (r *ipAddressResource) Read(ctx context.Context, req resource.ReadRequest, 
 		}
 	}
 
+	if cfRaw, ok := apiResponse["custom_fields"]; ok {
+		cf, diags := customFieldsFromAPI(cfRaw)
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			state.CustomFields = cf
+		}
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -246,6 +273,14 @@ func (r *ipAddressResource) Update(ctx context.Context, req resource.UpdateReque
 				ifType = plan.InterfaceType.ValueString()
 			}
 			payload["assigned_object_type"] = ifType
+		}
+	}
+	if !plan.CustomFields.Equal(state.CustomFields) {
+		if cf := customFieldsToPayload(ctx, plan.CustomFields, &resp.Diagnostics); cf != nil {
+			payload["custom_fields"] = cf
+		}
+		if resp.Diagnostics.HasError() {
+			return
 		}
 	}
 

@@ -11,6 +11,7 @@ import (
 
 	"terraform-provider-netbox/internal/client"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
@@ -39,6 +40,7 @@ type siteResourceModel struct {
 	Facility        types.String `tfsdk:"facility"`
 	TimeZone        types.String `tfsdk:"time_zone"`
 	PhysicalAddress types.String `tfsdk:"physical_address"`
+	CustomFields    types.Map    `tfsdk:"custom_fields"`
 }
 
 func (r *siteResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -85,6 +87,7 @@ func (r *siteResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				MarkdownDescription: "Physical address of the site.",
 				Optional:            true,
 			},
+			"custom_fields": customFieldsSchema(),
 		},
 	}
 }
@@ -138,6 +141,12 @@ func (r *siteResource) Create(ctx context.Context, req resource.CreateRequest, r
 	if !plan.PhysicalAddress.IsNull() && !plan.PhysicalAddress.IsUnknown() {
 		payload["physical_address"] = plan.PhysicalAddress.ValueString()
 	}
+	if cf := customFieldsToPayload(ctx, plan.CustomFields, &resp.Diagnostics); cf != nil {
+		payload["custom_fields"] = cf
+	}
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	bodyBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -166,6 +175,16 @@ func (r *siteResource) Create(ctx context.Context, req resource.CreateRequest, r
 
 	if slugVal, ok := apiResponse["slug"].(string); ok {
 		plan.Slug = types.StringValue(slugVal)
+	}
+
+	if cfRaw, ok := apiResponse["custom_fields"]; ok {
+		cf, diags := customFieldsFromAPI(cfRaw)
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			plan.CustomFields = cf
+		}
+	} else {
+		plan.CustomFields = types.MapValueMust(types.StringType, map[string]attr.Value{})
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
@@ -216,6 +235,14 @@ func (r *siteResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		state.PhysicalAddress = types.StringValue(addr)
 	}
 
+	if cfRaw, ok := apiResponse["custom_fields"]; ok {
+		cf, diags := customFieldsFromAPI(cfRaw)
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			state.CustomFields = cf
+		}
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -252,6 +279,14 @@ func (r *siteResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	}
 	if !plan.PhysicalAddress.Equal(state.PhysicalAddress) {
 		payload["physical_address"] = plan.PhysicalAddress.ValueString()
+	}
+	if !plan.CustomFields.Equal(state.CustomFields) {
+		if cf := customFieldsToPayload(ctx, plan.CustomFields, &resp.Diagnostics); cf != nil {
+			payload["custom_fields"] = cf
+		}
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 
 	if len(payload) > 0 {

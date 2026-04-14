@@ -11,6 +11,7 @@ import (
 
 	"terraform-provider-netbox/internal/client"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
@@ -32,10 +33,11 @@ type prefixResource struct {
 }
 
 type prefixResourceModel struct {
-	Prefix      types.String `tfsdk:"prefix"`
-	Status      types.String `tfsdk:"status"`
-	Description types.String `tfsdk:"description"`
-	Id          types.Int64  `tfsdk:"id"`
+	Prefix       types.String `tfsdk:"prefix"`
+	Status       types.String `tfsdk:"status"`
+	Description  types.String `tfsdk:"description"`
+	Id           types.Int64  `tfsdk:"id"`
+	CustomFields types.Map    `tfsdk:"custom_fields"`
 }
 
 func (r *prefixResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -68,6 +70,7 @@ func (r *prefixResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 					int64planmodifier.UseStateForUnknown(),
 				},
 			},
+			"custom_fields": customFieldsSchema(),
 		},
 	}
 }
@@ -103,6 +106,12 @@ func (r *prefixResource) Create(ctx context.Context, req resource.CreateRequest,
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		payload["description"] = plan.Description.ValueString()
 	}
+	if cf := customFieldsToPayload(ctx, plan.CustomFields, &resp.Diagnostics); cf != nil {
+		payload["custom_fields"] = cf
+	}
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	bodyBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -130,6 +139,16 @@ func (r *prefixResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 
 	plan.Id = types.Int64Value(int64(idFloat))
+
+	if cfRaw, ok := apiResponse["custom_fields"]; ok {
+		cf, diags := customFieldsFromAPI(cfRaw)
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			plan.CustomFields = cf
+		}
+	} else {
+		plan.CustomFields = types.MapValueMust(types.StringType, map[string]attr.Value{})
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -170,6 +189,14 @@ func (r *prefixResource) Read(ctx context.Context, req resource.ReadRequest, res
 		state.Description = types.StringValue(desc)
 	}
 
+	if cfRaw, ok := apiResponse["custom_fields"]; ok {
+		cf, diags := customFieldsFromAPI(cfRaw)
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			state.CustomFields = cf
+		}
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -187,6 +214,14 @@ func (r *prefixResource) Update(ctx context.Context, req resource.UpdateRequest,
 	}
 	if !plan.Description.Equal(state.Description) {
 		payload["description"] = plan.Description.ValueString()
+	}
+	if !plan.CustomFields.Equal(state.CustomFields) {
+		if cf := customFieldsToPayload(ctx, plan.CustomFields, &resp.Diagnostics); cf != nil {
+			payload["custom_fields"] = cf
+		}
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 
 	// Prefix cannot be changed due to RequiresReplace(), so we don't attempt to patch it.
