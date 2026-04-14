@@ -39,6 +39,7 @@ output "created_ip_id" {
 
 ### Optional
 
+- `custom_fields` (Map of String) Custom field values as a map of field name to string value.
 - `description` (String) Description for the IP address.
 - `dns_name` (String) DNS name associated with the IP address.
 - `interface_id` (Number) The ID of the interface to assign this IP address to.

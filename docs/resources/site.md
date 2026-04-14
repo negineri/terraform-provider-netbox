@@ -40,6 +40,7 @@ resource "netbox_vlan_group" "example" {
 
 ### Optional
 
+- `custom_fields` (Map of String) Custom field values as a map of field name to string value.
 - `description` (String) Description for the site.
 - `facility` (String) Physical location of the site (e.g., data center name).
 - `physical_address` (String) Physical address of the site.

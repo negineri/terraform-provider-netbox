@@ -37,6 +37,7 @@ resource "netbox_virtual_machine" "example" {
 ### Optional
 
 - `cluster_id` (Number) The ID of the cluster where the virtual machine is hosted.
+- `custom_fields` (Map of String) Custom field values as a map of field name to string value.
 - `description` (String) Description for the virtual machine.
 - `disk` (Number) The disk size (in GB) allocated to the virtual machine.
 - `memory` (Number) The amount of memory (in MB) allocated to the virtual machine.

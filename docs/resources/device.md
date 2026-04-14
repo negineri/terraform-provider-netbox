@@ -36,6 +36,7 @@ resource "netbox_device" "example" {
 
 ### Optional
 
+- `custom_fields` (Map of String) Custom field values as a map of field name to string value.
 - `description` (String) Description for the device.
 - `status` (String) The status of the device (e.g., active, offline, planned, staged, failed, decommissioning).
 - `tags` (List of Number) List of tag IDs to assign to the device.

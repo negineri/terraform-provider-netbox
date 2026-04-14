@@ -32,18 +32,19 @@ type virtualMachineResource struct {
 }
 
 type virtualMachineResourceModel struct {
-	Id          types.Int64  `tfsdk:"id"`
-	Name        types.String `tfsdk:"name"`
-	ClusterId   types.Int64  `tfsdk:"cluster_id"`
-	Status      types.String `tfsdk:"status"`
-	RoleId      types.Int64  `tfsdk:"role_id"`
-	SiteId      types.Int64  `tfsdk:"site_id"`
-	PlatformId  types.Int64  `tfsdk:"platform_id"`
-	Vcpus       types.Int64  `tfsdk:"vcpus"`
-	Memory      types.Int64  `tfsdk:"memory"`
-	Disk        types.Int64  `tfsdk:"disk"`
-	Description types.String `tfsdk:"description"`
-	Tags        types.List   `tfsdk:"tags"`
+	Id           types.Int64  `tfsdk:"id"`
+	Name         types.String `tfsdk:"name"`
+	ClusterId    types.Int64  `tfsdk:"cluster_id"`
+	Status       types.String `tfsdk:"status"`
+	RoleId       types.Int64  `tfsdk:"role_id"`
+	SiteId       types.Int64  `tfsdk:"site_id"`
+	PlatformId   types.Int64  `tfsdk:"platform_id"`
+	Vcpus        types.Int64  `tfsdk:"vcpus"`
+	Memory       types.Int64  `tfsdk:"memory"`
+	Disk         types.Int64  `tfsdk:"disk"`
+	Description  types.String `tfsdk:"description"`
+	Tags         types.List   `tfsdk:"tags"`
+	CustomFields types.Map    `tfsdk:"custom_fields"`
 }
 
 func (r *virtualMachineResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -106,6 +107,7 @@ func (r *virtualMachineResource) Schema(_ context.Context, _ resource.SchemaRequ
 				MarkdownDescription: "List of tag IDs to assign to the virtual machine.",
 				Optional:            true,
 			},
+			"custom_fields": customFieldsSchema(),
 		},
 	}
 }
@@ -176,6 +178,12 @@ func (r *virtualMachineResource) Create(ctx context.Context, req resource.Create
 		}
 		payload["tags"] = tags
 	}
+	if cf := customFieldsToPayload(ctx, plan.CustomFields, &resp.Diagnostics); cf != nil {
+		payload["custom_fields"] = cf
+	}
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	bodyBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -201,6 +209,16 @@ func (r *virtualMachineResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 	plan.Id = types.Int64Value(int64(idFloat))
+
+	if cfRaw, ok := apiResponse["custom_fields"]; ok {
+		cf, diags := customFieldsFromAPI(cfRaw)
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			plan.CustomFields = cf
+		}
+	} else {
+		plan.CustomFields = types.MapValueMust(types.StringType, map[string]attr.Value{})
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -302,6 +320,14 @@ func (r *virtualMachineResource) Read(ctx context.Context, req resource.ReadRequ
 		}
 	}
 
+	if cfRaw, ok := apiResponse["custom_fields"]; ok {
+		cf, diags := customFieldsFromAPI(cfRaw)
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			state.CustomFields = cf
+		}
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -386,6 +412,14 @@ func (r *virtualMachineResource) Update(ctx context.Context, req resource.Update
 			payload["tags"] = tags
 		} else {
 			payload["tags"] = []map[string]interface{}{}
+		}
+	}
+	if !plan.CustomFields.Equal(state.CustomFields) {
+		if cf := customFieldsToPayload(ctx, plan.CustomFields, &resp.Diagnostics); cf != nil {
+			payload["custom_fields"] = cf
+		}
+		if resp.Diagnostics.HasError() {
+			return
 		}
 	}
 
