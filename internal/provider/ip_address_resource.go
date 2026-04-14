@@ -135,7 +135,7 @@ func (r *ipAddressResource) Create(ctx context.Context, req resource.CreateReque
 		}
 		payload["assigned_object_type"] = ifType
 	}
-	if cf := customFieldsToPayload(ctx, plan.CustomFields, &resp.Diagnostics); cf != nil {
+	if cf := customFieldsToPayload(ctx, r.client, plan.CustomFields, &resp.Diagnostics); cf != nil {
 		payload["custom_fields"] = cf
 	}
 	if resp.Diagnostics.HasError() {
@@ -276,7 +276,7 @@ func (r *ipAddressResource) Update(ctx context.Context, req resource.UpdateReque
 		}
 	}
 	if !plan.CustomFields.Equal(state.CustomFields) {
-		if cf := customFieldsToPayload(ctx, plan.CustomFields, &resp.Diagnostics); cf != nil {
+		if cf := customFieldsToPayload(ctx, r.client, plan.CustomFields, &resp.Diagnostics); cf != nil {
 			payload["custom_fields"] = cf
 		}
 		if resp.Diagnostics.HasError() {

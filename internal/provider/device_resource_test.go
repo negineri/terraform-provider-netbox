@@ -5,6 +5,7 @@ package provider
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
@@ -111,7 +112,7 @@ resource "netbox_device" "test" {
 // NetBox 上に device_type_id=1, role_id=1, site_id=1 が存在している必要があります。
 func TestAccDeviceResourceWithCustomFields(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-device-cf")
-	rCfName := acctest.RandomWithPrefix("tf_acc_cf_device")
+	rCfName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_device"), "-", "_")
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -170,6 +171,215 @@ resource "netbox_device" "test_cf" {
 				),
 			},
 			// Delete testing automatically occurs in TestCase
+		},
+	})
+}
+
+// TestAccDeviceResourceWithIntegerCustomField は integer 型カスタムフィールドの設定・読み返しを検証します。
+// 数値文字列 "42" が API に integer として送信され、読み返し時も "42" として取得できることを確認します。
+func TestAccDeviceResourceWithIntegerCustomField(t *testing.T) {
+	rName := acctest.RandomWithPrefix("tf-acc-test-device-int-cf")
+	rCfName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_int_dev"), "-", "_")
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// integer カスタムフィールドに数値を設定する
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_custom_field" "test" {
+  name          = %q
+  type          = "integer"
+  content_types = ["dcim.device"]
+}
+
+resource "netbox_device" "test_int_cf" {
+  name           = %q
+  device_type_id = 1
+  role_id        = 1
+  site_id        = 1
+  status         = "active"
+
+  custom_fields = {
+    (netbox_custom_field.test.name) = "42"
+  }
+}
+`, rCfName, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_device.test_int_cf", "name", rName),
+					// API に integer として送信され、読み返しても "42" のまま（ドリフトなし）
+					resource.TestCheckResourceAttr("netbox_device.test_int_cf", fmt.Sprintf("custom_fields.%s", rCfName), "42"),
+				),
+			},
+			// 値を更新する
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_custom_field" "test" {
+  name          = %q
+  type          = "integer"
+  content_types = ["dcim.device"]
+}
+
+resource "netbox_device" "test_int_cf" {
+  name           = %q
+  device_type_id = 1
+  role_id        = 1
+  site_id        = 1
+  status         = "active"
+
+  custom_fields = {
+    (netbox_custom_field.test.name) = "100"
+  }
+}
+`, rCfName, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_device.test_int_cf", fmt.Sprintf("custom_fields.%s", rCfName), "100"),
+				),
+			},
+			// Delete testing automatically occurs in TestCase
+		},
+	})
+}
+
+// TestAccDeviceResourceWithBooleanCustomField は boolean 型カスタムフィールドの設定・読み返しを検証します。
+// "true"/"false" が API に boolean として送信され、読み返し時も "true"/"false" として取得できることを確認します。
+func TestAccDeviceResourceWithBooleanCustomField(t *testing.T) {
+	rName := acctest.RandomWithPrefix("tf-acc-test-device-bool-cf")
+	rCfName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_bool_dev"), "-", "_")
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// boolean カスタムフィールドに true を設定する
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_custom_field" "test" {
+  name          = %q
+  type          = "boolean"
+  content_types = ["dcim.device"]
+}
+
+resource "netbox_device" "test_bool_cf" {
+  name           = %q
+  device_type_id = 1
+  role_id        = 1
+  site_id        = 1
+  status         = "active"
+
+  custom_fields = {
+    (netbox_custom_field.test.name) = "true"
+  }
+}
+`, rCfName, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_device.test_bool_cf", "name", rName),
+					resource.TestCheckResourceAttr("netbox_device.test_bool_cf", fmt.Sprintf("custom_fields.%s", rCfName), "true"),
+				),
+			},
+			// false に更新する
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_custom_field" "test" {
+  name          = %q
+  type          = "boolean"
+  content_types = ["dcim.device"]
+}
+
+resource "netbox_device" "test_bool_cf" {
+  name           = %q
+  device_type_id = 1
+  role_id        = 1
+  site_id        = 1
+  status         = "active"
+
+  custom_fields = {
+    (netbox_custom_field.test.name) = "false"
+  }
+}
+`, rCfName, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_device.test_bool_cf", fmt.Sprintf("custom_fields.%s", rCfName), "false"),
+				),
+			},
+			// Delete testing automatically occurs in TestCase
+		},
+	})
+}
+
+// TestAccDeviceResourceWithTextCustomField は text 型カスタムフィールドに数値文字列を設定しても
+// integer に変換されないことを検証します（型認識対応の回帰テスト）。
+func TestAccDeviceResourceWithTextCustomField(t *testing.T) {
+	rName := acctest.RandomWithPrefix("tf-acc-test-device-text-cf")
+	rCfName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_text_dev"), "-", "_")
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// text フィールドに数値文字列 "42" を設定 → "42" のまま（integer 扱いされない）
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_custom_field" "test" {
+  name          = %q
+  type          = "text"
+  content_types = ["dcim.device"]
+}
+
+resource "netbox_device" "test_text_cf" {
+  name           = %q
+  device_type_id = 1
+  role_id        = 1
+  site_id        = 1
+  status         = "active"
+
+  custom_fields = {
+    (netbox_custom_field.test.name) = "42"
+  }
+}
+`, rCfName, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_device.test_text_cf", "name", rName),
+					resource.TestCheckResourceAttr("netbox_device.test_text_cf", fmt.Sprintf("custom_fields.%s", rCfName), "42"),
+				),
+			},
+		},
+	})
+}
+
+// TestAccDeviceResourceWithTextTrueCustomField は text 型カスタムフィールドに "true" を設定しても
+// boolean に変換されないことを検証します（型認識対応の回帰テスト）。
+func TestAccDeviceResourceWithTextTrueCustomField(t *testing.T) {
+	rName := acctest.RandomWithPrefix("tf-acc-test-device-texttrue-cf")
+	rCfName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_texttrue_dev"), "-", "_")
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// text フィールドに "true" を設定 → "true" のまま（bool 扱いされない）
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_custom_field" "test" {
+  name          = %q
+  type          = "text"
+  content_types = ["dcim.device"]
+}
+
+resource "netbox_device" "test_texttrue_cf" {
+  name           = %q
+  device_type_id = 1
+  role_id        = 1
+  site_id        = 1
+  status         = "active"
+
+  custom_fields = {
+    (netbox_custom_field.test.name) = "true"
+  }
+}
+`, rCfName, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_device.test_texttrue_cf", "name", rName),
+					resource.TestCheckResourceAttr("netbox_device.test_texttrue_cf", fmt.Sprintf("custom_fields.%s", rCfName), "true"),
+				),
+			},
 		},
 	})
 }

@@ -141,7 +141,7 @@ func (r *siteResource) Create(ctx context.Context, req resource.CreateRequest, r
 	if !plan.PhysicalAddress.IsNull() && !plan.PhysicalAddress.IsUnknown() {
 		payload["physical_address"] = plan.PhysicalAddress.ValueString()
 	}
-	if cf := customFieldsToPayload(ctx, plan.CustomFields, &resp.Diagnostics); cf != nil {
+	if cf := customFieldsToPayload(ctx, r.client, plan.CustomFields, &resp.Diagnostics); cf != nil {
 		payload["custom_fields"] = cf
 	}
 	if resp.Diagnostics.HasError() {
@@ -281,7 +281,7 @@ func (r *siteResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		payload["physical_address"] = plan.PhysicalAddress.ValueString()
 	}
 	if !plan.CustomFields.Equal(state.CustomFields) {
-		if cf := customFieldsToPayload(ctx, plan.CustomFields, &resp.Diagnostics); cf != nil {
+		if cf := customFieldsToPayload(ctx, r.client, plan.CustomFields, &resp.Diagnostics); cf != nil {
 			payload["custom_fields"] = cf
 		}
 		if resp.Diagnostics.HasError() {
@@ -297,11 +297,24 @@ func (r *siteResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		}
 
 		path := fmt.Sprintf("api/dcim/sites/%d/", state.Id.ValueInt64())
-		_, err = r.client.Patch(ctx, path, bytes.NewReader(bodyBytes))
+		bodyStr, err := r.client.Patch(ctx, path, bytes.NewReader(bodyBytes))
 		if err != nil {
 			resp.Diagnostics.AddError("Error updating Site", err.Error())
 			return
 		}
+
+		// Computed フィールドを API レスポンスから更新する
+		var apiResponse map[string]interface{}
+		if err := json.Unmarshal([]byte(*bodyStr), &apiResponse); err != nil {
+			resp.Diagnostics.AddError("Error parsing update response", err.Error())
+			return
+		}
+		if slugVal, ok := apiResponse["slug"].(string); ok {
+			plan.Slug = types.StringValue(slugVal)
+		}
+	} else if plan.Slug.IsNull() || plan.Slug.IsUnknown() {
+		// 変更なしの場合は state の slug を保持する
+		plan.Slug = state.Slug
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)

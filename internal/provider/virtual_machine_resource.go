@@ -178,7 +178,7 @@ func (r *virtualMachineResource) Create(ctx context.Context, req resource.Create
 		}
 		payload["tags"] = tags
 	}
-	if cf := customFieldsToPayload(ctx, plan.CustomFields, &resp.Diagnostics); cf != nil {
+	if cf := customFieldsToPayload(ctx, r.client, plan.CustomFields, &resp.Diagnostics); cf != nil {
 		payload["custom_fields"] = cf
 	}
 	if resp.Diagnostics.HasError() {
@@ -415,7 +415,7 @@ func (r *virtualMachineResource) Update(ctx context.Context, req resource.Update
 		}
 	}
 	if !plan.CustomFields.Equal(state.CustomFields) {
-		if cf := customFieldsToPayload(ctx, plan.CustomFields, &resp.Diagnostics); cf != nil {
+		if cf := customFieldsToPayload(ctx, r.client, plan.CustomFields, &resp.Diagnostics); cf != nil {
 			payload["custom_fields"] = cf
 		}
 		if resp.Diagnostics.HasError() {

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -74,9 +75,15 @@ func NewNetboxClient(serverURL string, keyV2 string, tokenV2 string) *NetboxClie
 }
 
 func (c *NetboxClient) newRequest(ctx context.Context, method, path string, body interface{}) (*retryablehttp.Request, error) {
-	fullURL, err := url.JoinPath(c.baseURL, path)
+	// クエリ文字列を分離してから url.JoinPath でパスを結合する。
+	// url.JoinPath に "?" を含む文字列を渡すと "%3F" にエンコードされてしまうため。
+	pathOnly, rawQuery, _ := strings.Cut(path, "?")
+	fullURL, err := url.JoinPath(c.baseURL, pathOnly)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct full URL: %w", err)
+	}
+	if rawQuery != "" {
+		fullURL += "?" + rawQuery
 	}
 	req, err := retryablehttp.NewRequestWithContext(ctx, method, fullURL, body)
 	if err != nil {

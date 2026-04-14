@@ -5,6 +5,7 @@ package provider
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
@@ -109,7 +110,7 @@ resource "netbox_site" "test" {
 // TestAccSiteResourceWithCustomFields は custom_fields 属性の acceptance test です。
 func TestAccSiteResourceWithCustomFields(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-site-cf")
-	rCfName := acctest.RandomWithPrefix("tf_acc_cf_site")
+	rCfName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_site"), "-", "_")
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,

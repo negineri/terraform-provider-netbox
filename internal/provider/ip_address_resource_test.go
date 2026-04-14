@@ -5,6 +5,7 @@ package provider
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
@@ -58,7 +59,7 @@ resource "netbox_ip_address" "test" {
 
 // TestAccIpAddressResourceWithCustomFields は custom_fields 属性の acceptance test です。
 func TestAccIpAddressResourceWithCustomFields(t *testing.T) {
-	rCfName := acctest.RandomWithPrefix("tf_acc_cf_ipaddr")
+	rCfName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_ipaddr"), "-", "_")
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,

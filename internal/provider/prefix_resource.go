@@ -106,7 +106,7 @@ func (r *prefixResource) Create(ctx context.Context, req resource.CreateRequest,
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		payload["description"] = plan.Description.ValueString()
 	}
-	if cf := customFieldsToPayload(ctx, plan.CustomFields, &resp.Diagnostics); cf != nil {
+	if cf := customFieldsToPayload(ctx, r.client, plan.CustomFields, &resp.Diagnostics); cf != nil {
 		payload["custom_fields"] = cf
 	}
 	if resp.Diagnostics.HasError() {
@@ -216,7 +216,7 @@ func (r *prefixResource) Update(ctx context.Context, req resource.UpdateRequest,
 		payload["description"] = plan.Description.ValueString()
 	}
 	if !plan.CustomFields.Equal(state.CustomFields) {
-		if cf := customFieldsToPayload(ctx, plan.CustomFields, &resp.Diagnostics); cf != nil {
+		if cf := customFieldsToPayload(ctx, r.client, plan.CustomFields, &resp.Diagnostics); cf != nil {
 			payload["custom_fields"] = cf
 		}
 		if resp.Diagnostics.HasError() {

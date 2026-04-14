@@ -174,7 +174,8 @@ func (d *customFieldDataSource) Read(ctx context.Context, req datasource.ReadReq
 			state.Type = types.StringValue(v)
 		}
 	}
-	if ctRaw, ok := apiResponse["content_types"].([]interface{}); ok {
+	ctRaw, _ := apiResponse["object_types"].([]interface{})
+	{
 		elems := make([]attr.Value, 0, len(ctRaw))
 		for _, v := range ctRaw {
 			if s, ok := v.(string); ok {
@@ -182,8 +183,6 @@ func (d *customFieldDataSource) Read(ctx context.Context, req datasource.ReadReq
 			}
 		}
 		state.ContentTypes = types.ListValueMust(types.StringType, elems)
-	} else {
-		state.ContentTypes = types.ListValueMust(types.StringType, []attr.Value{})
 	}
 	if req, ok := apiResponse["required"].(bool); ok {
 		state.Required = types.BoolValue(req)
