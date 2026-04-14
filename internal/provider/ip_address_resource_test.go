@@ -56,6 +56,63 @@ resource "netbox_ip_address" "test" {
 	})
 }
 
+// TestAccIpAddressResourceWithCustomFields は custom_fields 属性の acceptance test です。
+func TestAccIpAddressResourceWithCustomFields(t *testing.T) {
+	rCfName := acctest.RandomWithPrefix("tf_acc_cf_ipaddr")
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_custom_field" "test" {
+  name          = %q
+  type          = "text"
+  content_types = ["ipam.ipaddress"]
+}
+
+resource "netbox_ip_address" "test_cf" {
+  ip_address = "192.168.199.1/24"
+  status     = "active"
+
+  custom_fields = {
+    (netbox_custom_field.test.name) = "ipaddr-cf-value"
+  }
+}
+`, rCfName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_ip_address.test_cf", "ip_address", "192.168.199.1/24"),
+					resource.TestCheckResourceAttrSet("netbox_ip_address.test_cf", "id"),
+					resource.TestCheckResourceAttr("netbox_ip_address.test_cf", fmt.Sprintf("custom_fields.%s", rCfName), "ipaddr-cf-value"),
+				),
+			},
+			// カスタムフィールド値を更新する
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_custom_field" "test" {
+  name          = %q
+  type          = "text"
+  content_types = ["ipam.ipaddress"]
+}
+
+resource "netbox_ip_address" "test_cf" {
+  ip_address = "192.168.199.1/24"
+  status     = "active"
+
+  custom_fields = {
+    (netbox_custom_field.test.name) = "ipaddr-cf-updated"
+  }
+}
+`, rCfName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_ip_address.test_cf", fmt.Sprintf("custom_fields.%s", rCfName), "ipaddr-cf-updated"),
+				),
+			},
+			// Delete testing automatically occurs in TestCase
+		},
+	})
+}
+
 // TestAccIpAddressResourceWithInterface は IP アドレスをデバイスインターフェースに割り当てる acceptance test です。
 // 実行前に NETBOX_SERVER_URL / NETBOX_KEY_V2 / NETBOX_TOKEN_V2 環境変数と、
 // NetBox 上に device_type_id=1, role_id=1, site_id=1 が存在している必要があります。

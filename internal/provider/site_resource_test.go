@@ -106,6 +106,65 @@ resource "netbox_site" "test" {
 	})
 }
 
+// TestAccSiteResourceWithCustomFields は custom_fields 属性の acceptance test です。
+func TestAccSiteResourceWithCustomFields(t *testing.T) {
+	rName := acctest.RandomWithPrefix("tf-acc-test-site-cf")
+	rCfName := acctest.RandomWithPrefix("tf_acc_cf_site")
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// カスタムフィールドを作成してサイトに設定する
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_custom_field" "test" {
+  name          = %q
+  type          = "text"
+  content_types = ["dcim.site"]
+}
+
+resource "netbox_site" "test_cf" {
+  name   = %q
+  status = "active"
+
+  custom_fields = {
+    (netbox_custom_field.test.name) = "site-cf-value"
+  }
+}
+`, rCfName, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_site.test_cf", "name", rName),
+					resource.TestCheckResourceAttrSet("netbox_site.test_cf", "id"),
+					resource.TestCheckResourceAttr("netbox_site.test_cf", fmt.Sprintf("custom_fields.%s", rCfName), "site-cf-value"),
+				),
+			},
+			// カスタムフィールド値を更新する
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_custom_field" "test" {
+  name          = %q
+  type          = "text"
+  content_types = ["dcim.site"]
+}
+
+resource "netbox_site" "test_cf" {
+  name   = %q
+  status = "active"
+
+  custom_fields = {
+    (netbox_custom_field.test.name) = "site-cf-updated"
+  }
+}
+`, rCfName, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_site.test_cf", fmt.Sprintf("custom_fields.%s", rCfName), "site-cf-updated"),
+				),
+			},
+			// Delete testing automatically occurs in TestCase
+		},
+	})
+}
+
 // TestAccSiteResourceAutoSlug は slug 未指定時の自動生成を検証する acceptance test です。
 func TestAccSiteResourceAutoSlug(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-site")

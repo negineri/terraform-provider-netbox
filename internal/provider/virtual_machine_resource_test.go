@@ -111,6 +111,67 @@ resource "netbox_virtual_machine" "test" {
 	})
 }
 
+// TestAccVirtualMachineResourceWithCustomFields は custom_fields 属性の acceptance test です。
+// 実行前に NetBox 上に cluster_id=1 が存在している必要があります。
+func TestAccVirtualMachineResourceWithCustomFields(t *testing.T) {
+	rName := acctest.RandomWithPrefix("tf-acc-test-vm-cf")
+	rCfName := acctest.RandomWithPrefix("tf_acc_cf_vm")
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_custom_field" "test" {
+  name          = %q
+  type          = "text"
+  content_types = ["virtualization.virtualmachine"]
+}
+
+resource "netbox_virtual_machine" "test_cf" {
+  name       = %q
+  cluster_id = 1
+  status     = "active"
+
+  custom_fields = {
+    (netbox_custom_field.test.name) = "vm-cf-value"
+  }
+}
+`, rCfName, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_virtual_machine.test_cf", "name", rName),
+					resource.TestCheckResourceAttrSet("netbox_virtual_machine.test_cf", "id"),
+					resource.TestCheckResourceAttr("netbox_virtual_machine.test_cf", fmt.Sprintf("custom_fields.%s", rCfName), "vm-cf-value"),
+				),
+			},
+			// カスタムフィールド値を更新する
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_custom_field" "test" {
+  name          = %q
+  type          = "text"
+  content_types = ["virtualization.virtualmachine"]
+}
+
+resource "netbox_virtual_machine" "test_cf" {
+  name       = %q
+  cluster_id = 1
+  status     = "active"
+
+  custom_fields = {
+    (netbox_custom_field.test.name) = "vm-cf-updated"
+  }
+}
+`, rCfName, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_virtual_machine.test_cf", fmt.Sprintf("custom_fields.%s", rCfName), "vm-cf-updated"),
+				),
+			},
+			// Delete testing automatically occurs in TestCase
+		},
+	})
+}
+
 // TestAccVirtualMachineResourceWithoutCluster は cluster_id を指定せず site_id のみで作成する acceptance test です。
 // 実行前に NetBox 上に site_id=1 が存在している必要があります。
 func TestAccVirtualMachineResourceWithoutCluster(t *testing.T) {
