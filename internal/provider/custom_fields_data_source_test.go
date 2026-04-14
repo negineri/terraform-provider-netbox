@@ -5,6 +5,7 @@ package provider
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
@@ -14,7 +15,7 @@ import (
 // TestAccCustomFieldsDataSource は netbox_custom_fields データソースの acceptance test です。
 // 実行前に NETBOX_SERVER_URL / NETBOX_KEY_V2 / NETBOX_TOKEN_V2 環境変数が必要です。
 func TestAccCustomFieldsDataSource(t *testing.T) {
-	rName := acctest.RandomWithPrefix("tf_acc_cf_list")
+	rName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_list"), "-", "_")
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,

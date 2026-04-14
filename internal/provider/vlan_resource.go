@@ -116,7 +116,7 @@ func (r *vlanResource) Create(ctx context.Context, req resource.CreateRequest, r
 	if !plan.GroupId.IsNull() && !plan.GroupId.IsUnknown() {
 		payload["group"] = map[string]interface{}{"id": plan.GroupId.ValueInt64()}
 	}
-	if cf := customFieldsToPayload(ctx, plan.CustomFields, &resp.Diagnostics); cf != nil {
+	if cf := customFieldsToPayload(ctx, r.client, plan.CustomFields, &resp.Diagnostics); cf != nil {
 		payload["custom_fields"] = cf
 	}
 	if resp.Diagnostics.HasError() {
@@ -242,7 +242,7 @@ func (r *vlanResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		}
 	}
 	if !plan.CustomFields.Equal(state.CustomFields) {
-		if cf := customFieldsToPayload(ctx, plan.CustomFields, &resp.Diagnostics); cf != nil {
+		if cf := customFieldsToPayload(ctx, r.client, plan.CustomFields, &resp.Diagnostics); cf != nil {
 			payload["custom_fields"] = cf
 		}
 		if resp.Diagnostics.HasError() {

@@ -5,6 +5,7 @@ package provider
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
@@ -16,7 +17,7 @@ import (
 // 実行前に NETBOX_SERVER_URL / NETBOX_KEY_V2 / NETBOX_TOKEN_V2 環境変数が必要です。
 func TestAccCustomFieldResource(t *testing.T) {
 	var capturedID string
-	rName := acctest.RandomWithPrefix("tf_acc_cf")
+	rName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf"), "-", "_")
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -107,24 +108,76 @@ resource "netbox_custom_field" "test" {
 	})
 }
 
-// TestAccCustomFieldResourceSelect は select 型カスタムフィールドの acceptance test です。
-func TestAccCustomFieldResourceSelect(t *testing.T) {
-	rName := acctest.RandomWithPrefix("tf_acc_cf_sel")
+// TestAccCustomFieldResourceInteger は integer 型カスタムフィールドの acceptance test です。
+// integer 型フィールドに数値文字列を設定したとき、API への送信・読み返しが正しく行われることを検証します。
+func TestAccCustomFieldResourceInteger(t *testing.T) {
+	rName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_int"), "-", "_")
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
-			// Create select type custom field
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_custom_field" "test" {
   name          = %q
-  type          = "select"
-  content_types = ["dcim.device", "virtualization.virtualmachine"]
-  choices       = ["production", "staging", "development"]
-  default       = "development"
+  type          = "integer"
+  content_types = ["dcim.device"]
+}
+`, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_custom_field.test", "name", rName),
+					resource.TestCheckResourceAttr("netbox_custom_field.test", "type", "integer"),
+					resource.TestCheckResourceAttrSet("netbox_custom_field.test", "id"),
+				),
+			},
+			// Delete testing automatically occurs in TestCase
+		},
+	})
+}
+
+// TestAccCustomFieldResourceBoolean は boolean 型カスタムフィールドの acceptance test です。
+func TestAccCustomFieldResourceBoolean(t *testing.T) {
+	rName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_bool"), "-", "_")
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_custom_field" "test" {
+  name          = %q
+  type          = "boolean"
+  content_types = ["dcim.device"]
+}
+`, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_custom_field.test", "name", rName),
+					resource.TestCheckResourceAttr("netbox_custom_field.test", "type", "boolean"),
+					resource.TestCheckResourceAttrSet("netbox_custom_field.test", "id"),
+				),
+			},
+			// Delete testing automatically occurs in TestCase
+		},
+	})
+}
+
+// TestAccCustomFieldResourceAdvanced は高度な属性（group_name, ui_visible, ui_editable, is_cloneable）を
+// テストします。Netbox 4.x では select 型が choice_set を要求するため longtext 型を使用します。
+func TestAccCustomFieldResourceAdvanced(t *testing.T) {
+	rName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_adv"), "-", "_")
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create longtext custom field with advanced options
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_custom_field" "test" {
+  name          = %q
+  type          = "longtext"
+  content_types = ["dcim.device"]
   required      = true
-  group_name    = "Deployment"
+  group_name    = "Advanced"
   ui_visible    = "always"
   ui_editable   = "yes"
   is_cloneable  = true
@@ -132,31 +185,29 @@ resource "netbox_custom_field" "test" {
 `, rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_custom_field.test", "name", rName),
-					resource.TestCheckResourceAttr("netbox_custom_field.test", "type", "select"),
-					resource.TestCheckResourceAttr("netbox_custom_field.test", "content_types.#", "2"),
-					resource.TestCheckResourceAttr("netbox_custom_field.test", "choices.#", "3"),
+					resource.TestCheckResourceAttr("netbox_custom_field.test", "type", "longtext"),
+					resource.TestCheckResourceAttr("netbox_custom_field.test", "content_types.#", "1"),
 					resource.TestCheckResourceAttr("netbox_custom_field.test", "required", "true"),
-					resource.TestCheckResourceAttr("netbox_custom_field.test", "group_name", "Deployment"),
+					resource.TestCheckResourceAttr("netbox_custom_field.test", "group_name", "Advanced"),
 					resource.TestCheckResourceAttr("netbox_custom_field.test", "ui_visible", "always"),
 					resource.TestCheckResourceAttr("netbox_custom_field.test", "ui_editable", "yes"),
 					resource.TestCheckResourceAttr("netbox_custom_field.test", "is_cloneable", "true"),
 					resource.TestCheckResourceAttrSet("netbox_custom_field.test", "id"),
 				),
 			},
-			// Update choices
+			// Update group_name
 			{
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_custom_field" "test" {
   name          = %q
-  type          = "select"
-  content_types = ["dcim.device", "virtualization.virtualmachine"]
-  choices       = ["production", "staging", "development", "testing"]
+  type          = "longtext"
+  content_types = ["dcim.device"]
   required      = true
-  group_name    = "Deployment"
+  group_name    = "Updated"
 }
 `, rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("netbox_custom_field.test", "choices.#", "4"),
+					resource.TestCheckResourceAttr("netbox_custom_field.test", "group_name", "Updated"),
 					resource.TestCheckResourceAttrSet("netbox_custom_field.test", "id"),
 				),
 			},

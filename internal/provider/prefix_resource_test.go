@@ -5,6 +5,7 @@ package provider
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
@@ -13,7 +14,7 @@ import (
 
 // TestAccPrefixResourceWithCustomFields は custom_fields 属性の acceptance test です。
 func TestAccPrefixResourceWithCustomFields(t *testing.T) {
-	rCfName := acctest.RandomWithPrefix("tf_acc_cf_prefix")
+	rCfName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_prefix"), "-", "_")
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,

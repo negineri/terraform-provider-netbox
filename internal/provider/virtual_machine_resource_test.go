@@ -5,6 +5,7 @@ package provider
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
@@ -115,7 +116,7 @@ resource "netbox_virtual_machine" "test" {
 // 実行前に NetBox 上に cluster_id=1 が存在している必要があります。
 func TestAccVirtualMachineResourceWithCustomFields(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-vm-cf")
-	rCfName := acctest.RandomWithPrefix("tf_acc_cf_vm")
+	rCfName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_vm"), "-", "_")
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,

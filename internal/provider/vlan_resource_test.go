@@ -5,6 +5,7 @@ package provider
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
@@ -97,7 +98,7 @@ resource "netbox_vlan" "test" {
 // TestAccVlanResourceWithCustomFields は custom_fields 属性の acceptance test です。
 func TestAccVlanResourceWithCustomFields(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-vlan-cf")
-	rCfName := acctest.RandomWithPrefix("tf_acc_cf_vlan")
+	rCfName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_vlan"), "-", "_")
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,

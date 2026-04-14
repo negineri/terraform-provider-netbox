@@ -176,7 +176,7 @@ func (r *customFieldResource) Create(ctx context.Context, req resource.CreateReq
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	payload["content_types"] = contentTypes
+	payload["object_types"] = contentTypes
 
 	if !plan.Label.IsNull() && !plan.Label.IsUnknown() {
 		payload["label"] = plan.Label.ValueString()
@@ -286,46 +286,46 @@ func (r *customFieldResource) Update(ctx context.Context, req resource.UpdateReq
 
 	payload := map[string]interface{}{}
 
-	if !plan.Name.Equal(state.Name) {
+	if !plan.Name.Equal(state.Name) && !plan.Name.IsUnknown() {
 		payload["name"] = plan.Name.ValueString()
 	}
-	if !plan.Label.Equal(state.Label) {
+	if !plan.Label.Equal(state.Label) && !plan.Label.IsUnknown() {
 		payload["label"] = plan.Label.ValueString()
 	}
-	if !plan.Type.Equal(state.Type) {
+	if !plan.Type.Equal(state.Type) && !plan.Type.IsUnknown() {
 		payload["type"] = plan.Type.ValueString()
 	}
-	if !plan.ContentTypes.Equal(state.ContentTypes) {
+	if !plan.ContentTypes.Equal(state.ContentTypes) && !plan.ContentTypes.IsUnknown() {
 		var contentTypes []string
 		resp.Diagnostics.Append(plan.ContentTypes.ElementsAs(ctx, &contentTypes, false)...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
-		payload["content_types"] = contentTypes
+		payload["object_types"] = contentTypes
 	}
-	if !plan.Required.Equal(state.Required) {
+	if !plan.Required.Equal(state.Required) && !plan.Required.IsUnknown() {
 		payload["required"] = plan.Required.ValueBool()
 	}
-	if !plan.Description.Equal(state.Description) {
+	if !plan.Description.Equal(state.Description) && !plan.Description.IsUnknown() {
 		payload["description"] = plan.Description.ValueString()
 	}
-	if !plan.Default.Equal(state.Default) {
+	if !plan.Default.Equal(state.Default) && !plan.Default.IsUnknown() {
 		if plan.Default.IsNull() {
 			payload["default"] = nil
 		} else {
 			payload["default"] = plan.Default.ValueString()
 		}
 	}
-	if !plan.Weight.Equal(state.Weight) {
+	if !plan.Weight.Equal(state.Weight) && !plan.Weight.IsUnknown() {
 		payload["weight"] = plan.Weight.ValueInt64()
 	}
-	if !plan.FilterLogic.Equal(state.FilterLogic) {
+	if !plan.FilterLogic.Equal(state.FilterLogic) && !plan.FilterLogic.IsUnknown() {
 		payload["filter_logic"] = plan.FilterLogic.ValueString()
 	}
-	if !plan.GroupName.Equal(state.GroupName) {
+	if !plan.GroupName.Equal(state.GroupName) && !plan.GroupName.IsUnknown() {
 		payload["group_name"] = plan.GroupName.ValueString()
 	}
-	if !plan.Choices.Equal(state.Choices) {
+	if !plan.Choices.Equal(state.Choices) && !plan.Choices.IsUnknown() {
 		var choices []string
 		resp.Diagnostics.Append(plan.Choices.ElementsAs(ctx, &choices, false)...)
 		if resp.Diagnostics.HasError() {
@@ -333,16 +333,16 @@ func (r *customFieldResource) Update(ctx context.Context, req resource.UpdateReq
 		}
 		payload["choices"] = choices
 	}
-	if !plan.UIVisible.Equal(state.UIVisible) {
+	if !plan.UIVisible.Equal(state.UIVisible) && !plan.UIVisible.IsUnknown() {
 		payload["ui_visible"] = plan.UIVisible.ValueString()
 	}
-	if !plan.UIEditable.Equal(state.UIEditable) {
+	if !plan.UIEditable.Equal(state.UIEditable) && !plan.UIEditable.IsUnknown() {
 		payload["ui_editable"] = plan.UIEditable.ValueString()
 	}
-	if !plan.IsCloneable.Equal(state.IsCloneable) {
+	if !plan.IsCloneable.Equal(state.IsCloneable) && !plan.IsCloneable.IsUnknown() {
 		payload["is_cloneable"] = plan.IsCloneable.ValueBool()
 	}
-	if !plan.SearchWeight.Equal(state.SearchWeight) {
+	if !plan.SearchWeight.Equal(state.SearchWeight) && !plan.SearchWeight.IsUnknown() {
 		payload["search_weight"] = plan.SearchWeight.ValueInt64()
 	}
 
@@ -354,11 +354,33 @@ func (r *customFieldResource) Update(ctx context.Context, req resource.UpdateReq
 		}
 
 		apiPath := fmt.Sprintf("api/extras/custom-fields/%d/", state.Id.ValueInt64())
-		_, err = r.client.Patch(ctx, apiPath, bytes.NewReader(bodyBytes))
+		patchBody, err := r.client.Patch(ctx, apiPath, bytes.NewReader(bodyBytes))
 		if err != nil {
 			resp.Diagnostics.AddError("Error updating Custom Field", err.Error())
 			return
 		}
+
+		// PATCH レスポンスから Computed フィールドを更新する
+		var patchResponse map[string]interface{}
+		if err := json.Unmarshal([]byte(*patchBody), &patchResponse); err != nil {
+			resp.Diagnostics.AddError("Error parsing update response", err.Error())
+			return
+		}
+		setCustomFieldStateFromAPI(&plan, patchResponse)
+	} else {
+		// 変更なしの場合は state の Computed フィールドを保持する
+		plan.Label = state.Label
+		plan.Required = state.Required
+		plan.Description = state.Description
+		plan.Weight = state.Weight
+		plan.FilterLogic = state.FilterLogic
+		plan.GroupName = state.GroupName
+		plan.Choices = state.Choices
+		plan.UIVisible = state.UIVisible
+		plan.UIEditable = state.UIEditable
+		plan.IsCloneable = state.IsCloneable
+		plan.SearchWeight = state.SearchWeight
+		plan.ContentTypes = state.ContentTypes
 	}
 
 	plan.Id = state.Id
@@ -393,7 +415,8 @@ func setCustomFieldStateFromAPI(state *customFieldResourceModel, api map[string]
 			state.Type = types.StringValue(v)
 		}
 	}
-	if ctRaw, ok := api["content_types"].([]interface{}); ok {
+	ctRaw, _ := api["object_types"].([]interface{})
+	{
 		elems := make([]attr.Value, 0, len(ctRaw))
 		for _, v := range ctRaw {
 			if s, ok := v.(string); ok {
