@@ -45,6 +45,7 @@ Read-Only:
 - `id` (Number) The numeric ID of the site.
 - `name` (String) Name of the site.
 - `physical_address` (String) Physical address of the site.
+- `region_id` (Number) The numeric ID of the region this site belongs to.
 - `slug` (String) URL-friendly unique shorthand for the site.
 - `status` (String) The status of the site.
 - `time_zone` (String) Time zone of the site.

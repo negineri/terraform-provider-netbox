@@ -44,6 +44,7 @@ resource "netbox_vlan_group" "example" {
 - `description` (String) Description for the site.
 - `facility` (String) Physical location of the site (e.g., data center name).
 - `physical_address` (String) Physical address of the site.
+- `region_id` (Number) The numeric ID of the region this site belongs to.
 - `slug` (String) URL-friendly unique shorthand for the site. If omitted, auto-generated from name.
 - `status` (String) The status of the site (e.g., active, planned, staging, decommissioning, retired).
 - `time_zone` (String) Time zone of the site (e.g., America/New_York).
