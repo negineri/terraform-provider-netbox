@@ -32,6 +32,7 @@ type siteDataSourceModel struct {
 	Name            types.String `tfsdk:"name"`
 	Slug            types.String `tfsdk:"slug"`
 	Status          types.String `tfsdk:"status"`
+	RegionId        types.Int64  `tfsdk:"region_id"`
 	Description     types.String `tfsdk:"description"`
 	Facility        types.String `tfsdk:"facility"`
 	TimeZone        types.String `tfsdk:"time_zone"`
@@ -60,6 +61,10 @@ func (d *siteDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 			},
 			"status": schema.StringAttribute{
 				MarkdownDescription: "The status of the site.",
+				Computed:            true,
+			},
+			"region_id": schema.Int64Attribute{
+				MarkdownDescription: "The numeric ID of the region this site belongs to.",
 				Computed:            true,
 			},
 			"description": schema.StringAttribute{
@@ -130,6 +135,13 @@ func (d *siteDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 		if val, ok := statusMap["value"].(string); ok {
 			state.Status = types.StringValue(val)
 		}
+	}
+	if regionMap, ok := apiResponse["region"].(map[string]any); ok {
+		if regionID, ok := regionMap["id"].(float64); ok {
+			state.RegionId = types.Int64Value(int64(regionID))
+		}
+	} else {
+		state.RegionId = types.Int64Null()
 	}
 	if desc, ok := apiResponse["description"].(string); ok {
 		state.Description = types.StringValue(desc)
