@@ -244,6 +244,8 @@ func (p *netboxProvider) DataSources(_ context.Context) []func() datasource.Data
 	return []func() datasource.DataSource{
 		NewDevicesDataSource,
 		NewDeviceDataSource,
+		NewLocationsDataSource,
+		NewLocationDataSource,
 		NewSitesDataSource,
 		NewSiteDataSource,
 		NewTagsDataSource,
@@ -277,6 +279,7 @@ func (p *netboxProvider) Resources(_ context.Context) []func() resource.Resource
 		NewVirtualMachineResource,
 		NewVirtualMachineInterfaceResource,
 		NewVirtualMachinePrimaryIPResource,
+		NewLocationResource,
 		NewSiteResource,
 		NewTagResource,
 		NewVlanGroupResource,
