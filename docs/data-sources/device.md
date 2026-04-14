@@ -40,5 +40,6 @@ output "device_status" {
 - `device_type_id` (Number) The ID of the device type.
 - `name` (String) The name of the device.
 - `role_id` (Number) The ID of the device role.
+- `serial` (String) Serial number of the device.
 - `site_id` (Number) The ID of the site where the device is located.
 - `status` (String) The status of the device.
