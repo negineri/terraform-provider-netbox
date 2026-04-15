@@ -18,6 +18,8 @@ Fetches a list of device roles from Netbox.
 ### Optional
 
 - `custom_field_filters` (Map of String) Filter device roles by custom field values. Keys are custom field names, values are the filter values.
+- `name` (String) Filter by device role name.
+- `slug` (String) Filter by device role slug.
 
 ### Read-Only
 

@@ -33,6 +33,10 @@ output "prefix_count" {
 ### Optional
 
 - `custom_field_filters` (Map of String) Filter prefixes by custom field values. Keys are custom field names, values are the filter values.
+- `site_id` (Number) Filter by site ID.
+- `status` (String) Filter by status (e.g. active, container, reserved, deprecated).
+- `tag` (String) Filter by tag slug.
+- `vrf_id` (Number) Filter by VRF ID.
 
 ### Read-Only
 

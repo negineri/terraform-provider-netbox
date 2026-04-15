@@ -33,6 +33,9 @@ output "location_count" {
 ### Optional
 
 - `custom_field_filters` (Map of String) Filter locations by custom field values. Keys are custom field names, values are the filter values.
+- `name` (String) Filter by location name.
+- `site_id` (Number) Filter by site ID.
+- `status` (String) Filter by status (e.g. active, planned, staging, decommissioning, retired).
 
 ### Read-Only
 
