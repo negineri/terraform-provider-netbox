@@ -270,6 +270,8 @@ func (p *netboxProvider) DataSources(_ context.Context) []func() datasource.Data
 		NewRackDataSource,
 		NewDeviceTypesDataSource,
 		NewDeviceTypeDataSource,
+		NewManufacturersDataSource,
+		NewManufacturerDataSource,
 	}
 }
 
@@ -297,6 +299,7 @@ func (p *netboxProvider) Resources(_ context.Context) []func() resource.Resource
 		NewCustomFieldResource,
 		NewRackResource,
 		NewDeviceTypeResource,
+		NewManufacturerResource,
 	}
 }
 
