@@ -41,7 +41,7 @@ resource "netbox_custom_field" "test" {
 					resource.TestCheckResourceAttr("netbox_custom_field.test", "label", "TF Acc Test Field"),
 					resource.TestCheckResourceAttr("netbox_custom_field.test", "type", "text"),
 					resource.TestCheckResourceAttr("netbox_custom_field.test", "content_types.#", "1"),
-					resource.TestCheckResourceAttr("netbox_custom_field.test", "content_types.0", "dcim.device"),
+					resource.TestCheckTypeSetElemAttr("netbox_custom_field.test", "content_types.*", "dcim.device"),
 					resource.TestCheckResourceAttr("netbox_custom_field.test", "description", "terraform acceptance test custom field"),
 					resource.TestCheckResourceAttr("netbox_custom_field.test", "required", "false"),
 					resource.TestCheckResourceAttr("netbox_custom_field.test", "weight", "100"),
@@ -64,7 +64,7 @@ resource "netbox_custom_field" "test" {
   name          = %q
   label         = "TF Acc Test Field Updated"
   type          = "text"
-  content_types = ["dcim.device"]
+  content_types = ["virtualization.virtualmachine", "dcim.device"]
   description   = "terraform acceptance test custom field updated"
   required      = false
   weight        = 200

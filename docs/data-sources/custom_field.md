@@ -41,7 +41,7 @@ output "custom_field_content_types" {
 ### Read-Only
 
 - `choices` (List of String) Available choices for select/multiselect fields.
-- `content_types` (List of String) List of content types this custom field is assigned to.
+- `content_types` (Set of String) Set of content types this custom field is assigned to.
 - `default` (String) Default value for the custom field.
 - `description` (String) Description for the custom field.
 - `filter_logic` (String) Filtering logic for this field.

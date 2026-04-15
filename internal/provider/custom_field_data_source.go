@@ -33,7 +33,7 @@ type customFieldDataSourceModel struct {
 	Name         types.String `tfsdk:"name"`
 	Label        types.String `tfsdk:"label"`
 	Type         types.String `tfsdk:"type"`
-	ContentTypes types.List   `tfsdk:"content_types"`
+	ContentTypes types.Set    `tfsdk:"content_types"`
 	Required     types.Bool   `tfsdk:"required"`
 	Description  types.String `tfsdk:"description"`
 	Default      types.String `tfsdk:"default"`
@@ -71,8 +71,8 @@ func (d *customFieldDataSource) Schema(_ context.Context, _ datasource.SchemaReq
 				MarkdownDescription: "The type of the custom field.",
 				Computed:            true,
 			},
-			"content_types": schema.ListAttribute{
-				MarkdownDescription: "List of content types this custom field is assigned to.",
+			"content_types": schema.SetAttribute{
+				MarkdownDescription: "Set of content types this custom field is assigned to.",
 				Computed:            true,
 				ElementType:         types.StringType,
 			},
@@ -182,7 +182,7 @@ func (d *customFieldDataSource) Read(ctx context.Context, req datasource.ReadReq
 				elems = append(elems, types.StringValue(s))
 			}
 		}
-		state.ContentTypes = types.ListValueMust(types.StringType, elems)
+		state.ContentTypes = types.SetValueMust(types.StringType, elems)
 	}
 	if req, ok := apiResponse["required"].(bool); ok {
 		state.Required = types.BoolValue(req)
