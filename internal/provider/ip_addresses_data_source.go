@@ -28,8 +28,9 @@ type ipAddressesDataSource struct {
 }
 
 type ipAddressesDataSourceModel struct {
-	Id          types.String     `tfsdk:"id"`
-	IpAddresses []ipAddressModel `tfsdk:"ip_addresses"`
+	Id                 types.String     `tfsdk:"id"`
+	IpAddresses        []ipAddressModel `tfsdk:"ip_addresses"`
+	CustomFieldFilters types.Map        `tfsdk:"custom_field_filters"`
 }
 
 type ipAddressModel struct {
@@ -53,6 +54,11 @@ func (d *ipAddressesDataSource) Schema(_ context.Context, _ datasource.SchemaReq
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Placeholder identifier for the data source.",
 				Computed:            true,
+			},
+			"custom_field_filters": schema.MapAttribute{
+				MarkdownDescription: "Filter IP addresses by custom field values. Keys are custom field names, values are the filter values.",
+				Optional:            true,
+				ElementType:         types.StringType,
 			},
 			"ip_addresses": schema.ListNestedAttribute{
 				MarkdownDescription: "List of IP addresses.",
@@ -121,7 +127,12 @@ func (d *ipAddressesDataSource) Read(ctx context.Context, req datasource.ReadReq
 
 	state.IpAddresses = []ipAddressModel{}
 
-	bodyStr, err := d.client.Get(ctx, "api/ipam/ip-addresses/")
+	apiPath := "api/ipam/ip-addresses/"
+	if query := buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters); query != "" {
+		apiPath += "?" + query
+	}
+
+	bodyStr, err := d.client.Get(ctx, apiPath)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to fetch IP addresses, got error: %s", err))
 		return

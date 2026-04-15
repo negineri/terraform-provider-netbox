@@ -28,8 +28,9 @@ type sitesDataSource struct {
 }
 
 type sitesDataSourceModel struct {
-	Id    types.String `tfsdk:"id"`
-	Sites []siteModel  `tfsdk:"sites"`
+	Id                 types.String `tfsdk:"id"`
+	Sites              []siteModel  `tfsdk:"sites"`
+	CustomFieldFilters types.Map    `tfsdk:"custom_field_filters"`
 }
 
 type siteModel struct {
@@ -55,6 +56,11 @@ func (d *sitesDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, 
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Placeholder identifier for the data source.",
 				Computed:            true,
+			},
+			"custom_field_filters": schema.MapAttribute{
+				MarkdownDescription: "Filter sites by custom field values. Keys are custom field names, values are the filter values.",
+				Optional:            true,
+				ElementType:         types.StringType,
 			},
 			"sites": schema.ListNestedAttribute{
 				MarkdownDescription: "List of sites.",
@@ -131,7 +137,12 @@ func (d *sitesDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 
 	state.Sites = []siteModel{}
 
-	bodyStr, err := d.client.Get(ctx, "api/dcim/sites/")
+	apiPath := "api/dcim/sites/"
+	if query := buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters); query != "" {
+		apiPath += "?" + query
+	}
+
+	bodyStr, err := d.client.Get(ctx, apiPath)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to fetch sites, got error: %s", err))
 		return

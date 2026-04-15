@@ -28,8 +28,9 @@ type vlansDataSource struct {
 }
 
 type vlansDataSourceModel struct {
-	Id    types.String `tfsdk:"id"`
-	Vlans []vlanModel  `tfsdk:"vlans"`
+	Id                 types.String `tfsdk:"id"`
+	Vlans              []vlanModel  `tfsdk:"vlans"`
+	CustomFieldFilters types.Map    `tfsdk:"custom_field_filters"`
 }
 
 type vlanModel struct {
@@ -52,6 +53,11 @@ func (d *vlansDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, 
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Placeholder identifier for the data source.",
 				Computed:            true,
+			},
+			"custom_field_filters": schema.MapAttribute{
+				MarkdownDescription: "Filter VLANs by custom field values. Keys are custom field names, values are the filter values.",
+				Optional:            true,
+				ElementType:         types.StringType,
 			},
 			"vlans": schema.ListNestedAttribute{
 				MarkdownDescription: "List of VLANs.",
@@ -116,7 +122,12 @@ func (d *vlansDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 
 	state.Vlans = []vlanModel{}
 
-	bodyStr, err := d.client.Get(ctx, "api/ipam/vlans/")
+	apiPath := "api/ipam/vlans/"
+	if query := buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters); query != "" {
+		apiPath += "?" + query
+	}
+
+	bodyStr, err := d.client.Get(ctx, apiPath)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to fetch VLANs, got error: %s", err))
 		return

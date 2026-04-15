@@ -28,8 +28,9 @@ type prefixesDataSource struct {
 }
 
 type prefixesDataSourceModel struct {
-	Id       types.String  `tfsdk:"id"`
-	Prefixes []prefixModel `tfsdk:"prefixes"`
+	Id                 types.String  `tfsdk:"id"`
+	Prefixes           []prefixModel `tfsdk:"prefixes"`
+	CustomFieldFilters types.Map     `tfsdk:"custom_field_filters"`
 }
 
 type prefixModel struct {
@@ -50,6 +51,11 @@ func (d *prefixesDataSource) Schema(_ context.Context, _ datasource.SchemaReques
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Placeholder identifier for the data source.",
 				Computed:            true,
+			},
+			"custom_field_filters": schema.MapAttribute{
+				MarkdownDescription: "Filter prefixes by custom field values. Keys are custom field names, values are the filter values.",
+				Optional:            true,
+				ElementType:         types.StringType,
 			},
 			"prefixes": schema.ListNestedAttribute{
 				MarkdownDescription: "List of prefixes.",
@@ -106,7 +112,12 @@ func (d *prefixesDataSource) Read(ctx context.Context, req datasource.ReadReques
 
 	state.Prefixes = []prefixModel{}
 
-	bodyStr, err := d.client.Get(ctx, "api/ipam/prefixes/")
+	apiPath := "api/ipam/prefixes/"
+	if query := buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters); query != "" {
+		apiPath += "?" + query
+	}
+
+	bodyStr, err := d.client.Get(ctx, apiPath)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to fetch prefixes, got error: %s", err))
 		return
