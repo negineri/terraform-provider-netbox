@@ -18,6 +18,9 @@ Fetches a list of device types from Netbox.
 ### Optional
 
 - `custom_field_filters` (Map of String) Filter device types by custom field values. Keys are custom field names, values are the filter values.
+- `manufacturer_id` (Number) Filter by manufacturer ID.
+- `model` (String) Filter by model name.
+- `slug` (String) Filter by device type slug.
 
 ### Read-Only
 

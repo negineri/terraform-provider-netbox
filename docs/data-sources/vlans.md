@@ -33,6 +33,11 @@ output "vlan_count" {
 ### Optional
 
 - `custom_field_filters` (Map of String) Filter VLANs by custom field values. Keys are custom field names, values are the filter values.
+- `name` (String) Filter by VLAN name.
+- `site_id` (Number) Filter by site ID.
+- `status` (String) Filter by status (e.g. active, reserved, deprecated).
+- `tag` (String) Filter by tag slug.
+- `vid` (Number) Filter by VLAN ID (1-4094).
 
 ### Read-Only
 

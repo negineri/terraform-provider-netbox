@@ -33,6 +33,10 @@ output "site_count" {
 ### Optional
 
 - `custom_field_filters` (Map of String) Filter sites by custom field values. Keys are custom field names, values are the filter values.
+- `name` (String) Filter by site name.
+- `region_id` (Number) Filter by region ID.
+- `status` (String) Filter by status (e.g. active, planned, staging, decommissioning, retired).
+- `tag` (String) Filter by tag slug.
 
 ### Read-Only
 

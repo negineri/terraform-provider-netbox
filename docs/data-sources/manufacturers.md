@@ -18,6 +18,8 @@ Fetches a list of manufacturers from Netbox.
 ### Optional
 
 - `custom_field_filters` (Map of String) Filter manufacturers by custom field values. Keys are custom field names, values are the filter values.
+- `name` (String) Filter by manufacturer name.
+- `slug` (String) Filter by manufacturer slug.
 
 ### Read-Only
 

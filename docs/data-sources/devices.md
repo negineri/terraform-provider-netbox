@@ -33,6 +33,11 @@ output "device_count" {
 ### Optional
 
 - `custom_field_filters` (Map of String) Filter devices by custom field values. Keys are custom field names, values are the filter values.
+- `name` (String) Filter by device name.
+- `role_id` (Number) Filter by device role ID.
+- `site_id` (Number) Filter by site ID.
+- `status` (String) Filter by status (e.g. active, planned, staged, failed, decommissioning, inventory, offline).
+- `tag` (String) Filter by tag slug.
 
 ### Read-Only
 

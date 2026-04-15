@@ -18,6 +18,8 @@ Fetches a list of regions from Netbox.
 ### Optional
 
 - `custom_field_filters` (Map of String) Filter regions by custom field values. Keys are custom field names, values are the filter values.
+- `name` (String) Filter by region name.
+- `slug` (String) Filter by region slug.
 
 ### Read-Only
 

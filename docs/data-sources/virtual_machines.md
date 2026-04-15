@@ -32,7 +32,13 @@ output "virtual_machine_count" {
 
 ### Optional
 
+- `cluster_id` (Number) Filter by cluster ID.
 - `custom_field_filters` (Map of String) Filter virtual machines by custom field values. Keys are custom field names, values are the filter values.
+- `name` (String) Filter by virtual machine name.
+- `role_id` (Number) Filter by device role ID.
+- `site_id` (Number) Filter by site ID.
+- `status` (String) Filter by status (e.g. active, planned, staged, failed, decommissioning, offline).
+- `tag` (String) Filter by tag slug.
 
 ### Read-Only
 

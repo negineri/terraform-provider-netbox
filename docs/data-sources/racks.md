@@ -33,6 +33,11 @@ output "rack_count" {
 ### Optional
 
 - `custom_field_filters` (Map of String) Filter racks by custom field values. Keys are custom field names, values are the filter values.
+- `location_id` (Number) Filter by location ID.
+- `name` (String) Filter by rack name.
+- `site_id` (Number) Filter by site ID.
+- `status` (String) Filter by status (e.g. active, planned, staged, failed, decommissioning, available, reserved, deprecated).
+- `tag` (String) Filter by tag slug.
 
 ### Read-Only
 
