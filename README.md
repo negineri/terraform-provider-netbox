@@ -1,64 +1,134 @@
-# Terraform Provider Scaffolding (Terraform Plugin Framework)
+# Terraform Provider for NetBox
 
-_This template repository is built on the [Terraform Plugin Framework](https://github.com/hashicorp/terraform-plugin-framework). The template repository built on the [Terraform Plugin SDK](https://github.com/hashicorp/terraform-plugin-sdk) can be found at [terraform-provider-scaffolding](https://github.com/hashicorp/terraform-provider-scaffolding). See [Which SDK Should I Use?](https://developer.hashicorp.com/terraform/plugin/framework-benefits) in the Terraform documentation for additional information._
+[NetBox](https://netboxlabs.com/) の Terraform Provider です。[Terraform Plugin Framework](https://github.com/hashicorp/terraform-plugin-framework) を使用して構築されています。
 
-This repository is a *template* for a [Terraform](https://www.terraform.io) provider. It is intended as a starting point for creating Terraform providers, containing:
-
-- A resource and a data source (`internal/provider/`),
-- Examples (`examples/`) and generated documentation (`docs/`),
-- Miscellaneous meta files.
-
-These files contain boilerplate code that you will need to edit to create your own Terraform provider. Tutorials for creating Terraform providers can be found on the [HashiCorp Developer](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework) platform. _Terraform Plugin Framework specific guides are titled accordingly._
-
-Please see the [GitHub template repository documentation](https://help.github.com/en/github/creating-cloning-and-archiving-repositories/creating-a-repository-from-a-template) for how to create a new repository from this template on GitHub.
-
-Once you've written your provider, you'll want to [publish it on the Terraform Registry](https://developer.hashicorp.com/terraform/registry/providers/publishing) so that others can use it.
-
-## Requirements
+## 要件
 
 - [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.0
 - [Go](https://golang.org/doc/install) >= 1.24
 
-## Building The Provider
+## 使い方
 
-1. Clone the repository
-1. Enter the repository directory
-1. Build the provider using the Go `install` command:
+```terraform
+terraform {
+  required_providers {
+    netbox = {
+      source = "negineri/netbox"
+    }
+  }
+}
+
+# Configuration-based authentication
+provider "netbox" {
+  server_url = "https://netbox.example.com:8000"
+  key_v2     = "testkey"
+  token_v2   = "testtoken"
+}
+```
+
+認証情報は環境変数でも設定できます。
+
+| 環境変数               | 説明                                  |
+| ---------------------- | ------------------------------------- |
+| `NETBOX_SERVER_URL`    | NetBox API の URL                     |
+| `NETBOX_KEY_V2`        | API key (v2 token 用)                 |
+| `NETBOX_TOKEN_V2`      | API token (v2 token 用)               |
+| `NETBOX_TOKEN`         | API v1 token                          |
+
+## サポートするリソースとデータソース
+
+### Resources
+
+| リソース名                               | 説明                             |
+| ---------------------------------------- | -------------------------------- |
+| `netbox_available_ip`                    | プレフィックスから利用可能な IP アドレスを割り当て |
+| `netbox_available_prefix`                | プレフィックスから利用可能なサブネットを割り当て |
+| `netbox_custom_field`                    | カスタムフィールド               |
+| `netbox_device`                          | デバイス                         |
+| `netbox_device_interface`                | デバイスインターフェース         |
+| `netbox_device_primary_ip`               | デバイスのプライマリ IP 設定     |
+| `netbox_ip_address`                      | IP アドレス                      |
+| `netbox_ip_address_range`                | IP アドレス範囲                  |
+| `netbox_location`                        | ロケーション                     |
+| `netbox_prefix`                          | プレフィックス                   |
+| `netbox_site`                            | サイト                           |
+| `netbox_tag`                             | タグ                             |
+| `netbox_virtual_machine`                 | 仮想マシン                       |
+| `netbox_virtual_machine_interface`       | 仮想マシンインターフェース       |
+| `netbox_virtual_machine_primary_ip`      | 仮想マシンのプライマリ IP 設定   |
+| `netbox_vlan`                            | VLAN                             |
+| `netbox_vlan_group`                      | VLAN グループ                    |
+
+### Data Sources
+
+| データソース名                           | 説明                             |
+| ---------------------------------------- | -------------------------------- |
+| `netbox_custom_field`                    | カスタムフィールド (単体)        |
+| `netbox_custom_fields`                   | カスタムフィールド (一覧)        |
+| `netbox_device`                          | デバイス (単体)                  |
+| `netbox_devices`                         | デバイス (一覧)                  |
+| `netbox_ip_address`                      | IP アドレス (単体)               |
+| `netbox_ip_addresses`                    | IP アドレス (一覧)               |
+| `netbox_location`                        | ロケーション (単体)              |
+| `netbox_locations`                       | ロケーション (一覧)              |
+| `netbox_prefix`                          | プレフィックス (単体)            |
+| `netbox_prefixes`                        | プレフィックス (一覧)            |
+| `netbox_region`                          | リージョン (単体)                |
+| `netbox_regions`                         | リージョン (一覧)                |
+| `netbox_site`                            | サイト (単体)                    |
+| `netbox_sites`                           | サイト (一覧)                    |
+| `netbox_tag`                             | タグ (単体)                      |
+| `netbox_tags`                            | タグ (一覧)                      |
+| `netbox_virtual_machine`                 | 仮想マシン (単体)                |
+| `netbox_virtual_machines`               | 仮想マシン (一覧)                |
+| `netbox_vlan`                            | VLAN (単体)                      |
+| `netbox_vlan_group`                      | VLAN グループ (単体)             |
+| `netbox_vlan_groups`                     | VLAN グループ (一覧)             |
+| `netbox_vlans`                           | VLAN (一覧)                      |
+
+## Provider のビルド
 
 ```shell
+git clone https://github.com/negineri/terraform-provider-netbox.git
+cd terraform-provider-netbox
 go install
 ```
 
-## Adding Dependencies
+ビルドした provider をローカルで使用するには、`~/.terraformrc` に以下を追加します。
 
-This provider uses [Go modules](https://github.com/golang/go/wiki/Modules).
-Please see the Go documentation for the most up to date information about using Go modules.
+```hcl
+provider_installation {
+  dev_overrides {
+    "negineri/netbox" = "/path/to/GOPATH/bin"
+  }
 
-To add a new dependency `github.com/author/dependency` to your Terraform provider:
+  direct {}
+}
+```
+
+## 開発
+
+### 依存関係の追加
 
 ```shell
 go get github.com/author/dependency
 go mod tidy
 ```
 
-Then commit the changes to `go.mod` and `go.sum`.
+### ドキュメントの生成
 
-## Using the provider
+```shell
+make generate
+```
 
-Fill this in for each provider
+### Acceptance テストの実行
 
-## Developing the Provider
-
-If you wish to work on the provider, you'll first need [Go](http://www.golang.org) installed on your machine (see [Requirements](#requirements) above).
-
-To compile the provider, run `go install`. This will build the provider and put the provider binary in the `$GOPATH/bin` directory.
-
-To generate or update documentation, run `make generate`.
-
-In order to run the full suite of Acceptance tests, run `make testacc`.
-
-*Note:* Acceptance tests create real resources, and often cost money to run.
+Acceptance テストには稼働中の NetBox インスタンスが必要です。
 
 ```shell
 make testacc
 ```
+
+## ライセンス
+
+[Mozilla Public License 2.0](LICENSE)
