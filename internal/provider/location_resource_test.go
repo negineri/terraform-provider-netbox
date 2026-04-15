@@ -20,6 +20,7 @@ func TestAccLocationResource(t *testing.T) {
 	var capturedID string
 	rSiteName := acctest.RandomWithPrefix("tf-acc-test-site")
 	rName := acctest.RandomWithPrefix("tf-acc-test-location")
+	rSlug := rName + "-s"
 	rNameRenamed := rName + "-renamed"
 	rCfName := strings.ReplaceAll(acctest.RandomWithPrefix("tf_acc_cf_location"), "-", "_")
 
@@ -56,15 +57,15 @@ resource "netbox_site" "test" {
 
 resource "netbox_location" "test" {
   name        = %q
-  slug        = "tf-acc-test-location-slug"
+  slug        = %q
   site_id     = netbox_site.test.id
   status      = "active"
   description = "terraform test location"
 }
-`, rSiteName, rName),
+`, rSiteName, rName, rSlug),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_location.test", "name", rName),
-					resource.TestCheckResourceAttr("netbox_location.test", "slug", "tf-acc-test-location-slug"),
+					resource.TestCheckResourceAttr("netbox_location.test", "slug", rSlug),
 					resource.TestCheckResourceAttr("netbox_location.test", "status", "active"),
 					resource.TestCheckResourceAttr("netbox_location.test", "description", "terraform test location"),
 					resource.TestCheckResourceAttrSet("netbox_location.test", "id"),
@@ -89,12 +90,12 @@ resource "netbox_site" "test" {
 
 resource "netbox_location" "test" {
   name        = %q
-  slug        = "tf-acc-test-location-slug"
+  slug        = %q
   site_id     = netbox_site.test.id
   status      = "planned"
   description = "terraform test location updated"
 }
-`, rSiteName, rName),
+`, rSiteName, rName, rSlug),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_location.test", "name", rName),
 					resource.TestCheckResourceAttr("netbox_location.test", "status", "planned"),
@@ -112,11 +113,11 @@ resource "netbox_site" "test" {
 
 resource "netbox_location" "test" {
   name    = %q
-  slug    = "tf-acc-test-location-slug"
+  slug    = %q
   site_id = netbox_site.test.id
   status  = "planned"
 }
-`, rSiteName, rNameRenamed),
+`, rSiteName, rNameRenamed, rSlug),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_location.test", "name", rNameRenamed),
 					func(s *terraform.State) error {

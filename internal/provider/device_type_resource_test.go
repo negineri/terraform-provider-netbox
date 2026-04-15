@@ -19,6 +19,7 @@ import (
 func TestAccDeviceTypeResource(t *testing.T) {
 	var capturedID string
 	rName := acctest.RandomWithPrefix("tf-acc-test-device-type")
+	rSlug := rName + "-s"
 	rNameRenamed := rName + "-renamed"
 
 	resource.ParallelTest(t, resource.TestCase{
@@ -44,16 +45,16 @@ resource "netbox_device_type" "test" {
 resource "netbox_device_type" "test" {
   manufacturer_id = 1
   model           = %q
-  slug            = "tf-acc-test-device-type-slug"
+  slug            = %q
   part_number     = "TEST-PART-001"
   u_height        = 2
   is_full_depth   = true
   description     = "terraform test device type"
 }
-`, rName),
+`, rName, rSlug),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_device_type.test", "model", rName),
-					resource.TestCheckResourceAttr("netbox_device_type.test", "slug", "tf-acc-test-device-type-slug"),
+					resource.TestCheckResourceAttr("netbox_device_type.test", "slug", rSlug),
 					resource.TestCheckResourceAttr("netbox_device_type.test", "part_number", "TEST-PART-001"),
 					resource.TestCheckResourceAttr("netbox_device_type.test", "u_height", "2"),
 					resource.TestCheckResourceAttr("netbox_device_type.test", "is_full_depth", "true"),
@@ -75,13 +76,13 @@ resource "netbox_device_type" "test" {
 resource "netbox_device_type" "test" {
   manufacturer_id = 1
   model           = %q
-  slug            = "tf-acc-test-device-type-slug"
+  slug            = %q
   part_number     = "TEST-PART-002"
   u_height        = 4
   is_full_depth   = false
   description     = "terraform test device type updated"
 }
-`, rName),
+`, rName, rSlug),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_device_type.test", "model", rName),
 					resource.TestCheckResourceAttr("netbox_device_type.test", "part_number", "TEST-PART-002"),
@@ -97,9 +98,9 @@ resource "netbox_device_type" "test" {
 resource "netbox_device_type" "test" {
   manufacturer_id = 1
   model           = %q
-  slug            = "tf-acc-test-device-type-slug"
+  slug            = %q
 }
-`, rNameRenamed),
+`, rNameRenamed, rSlug),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_device_type.test", "model", rNameRenamed),
 					func(s *terraform.State) error {

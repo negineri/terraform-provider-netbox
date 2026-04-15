@@ -19,6 +19,7 @@ import (
 func TestAccSiteResource(t *testing.T) {
 	var capturedID string
 	rName := acctest.RandomWithPrefix("tf-acc-test-site")
+	rSlug := rName + "-s"
 	rNameRenamed := rName + "-renamed"
 
 	resource.ParallelTest(t, resource.TestCase{
@@ -43,17 +44,17 @@ resource "netbox_site" "test" {
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_site" "test" {
   name             = %q
-  slug             = "tf-acc-test-site-slug"
+  slug             = %q
   status           = "active"
   description      = "terraform test site"
   facility         = "Test Datacenter"
   time_zone        = "Asia/Tokyo"
   physical_address = "1-1-1 Test Street, Tokyo"
 }
-`, rName),
+`, rName, rSlug),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_site.test", "name", rName),
-					resource.TestCheckResourceAttr("netbox_site.test", "slug", "tf-acc-test-site-slug"),
+					resource.TestCheckResourceAttr("netbox_site.test", "slug", rSlug),
 					resource.TestCheckResourceAttr("netbox_site.test", "status", "active"),
 					resource.TestCheckResourceAttr("netbox_site.test", "description", "terraform test site"),
 					resource.TestCheckResourceAttr("netbox_site.test", "facility", "Test Datacenter"),
@@ -75,14 +76,14 @@ resource "netbox_site" "test" {
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_site" "test" {
   name             = %q
-  slug             = "tf-acc-test-site-slug"
+  slug             = %q
   status           = "planned"
   description      = "terraform test site updated"
   facility         = "Updated Datacenter"
   time_zone        = "America/New_York"
   physical_address = "2-2-2 Updated Street, Osaka"
 }
-`, rName),
+`, rName, rSlug),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_site.test", "name", rName),
 					resource.TestCheckResourceAttr("netbox_site.test", "status", "planned"),
@@ -98,11 +99,11 @@ resource "netbox_site" "test" {
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_site" "test" {
   name      = %q
-  slug      = "tf-acc-test-site-slug"
+  slug      = %q
   status    = "planned"
   time_zone = "America/New_York"
 }
-`, rNameRenamed),
+`, rNameRenamed, rSlug),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_site.test", "name", rNameRenamed),
 					func(s *terraform.State) error {

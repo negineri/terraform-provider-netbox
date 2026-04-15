@@ -18,6 +18,7 @@ import (
 func TestAccVlanGroupResource(t *testing.T) {
 	var capturedID string
 	rName := acctest.RandomWithPrefix("tf-acc-test-vlan-group")
+	rSlug := rName + "-s"
 	rNameRenamed := rName + "-renamed"
 
 	resource.ParallelTest(t, resource.TestCase{
@@ -41,15 +42,15 @@ resource "netbox_vlan_group" "test" {
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_vlan_group" "test" {
   name        = %q
-  slug        = "tf-acc-test-vlan-group-slug"
+  slug        = %q
   description = "terraform test VLAN group"
   min_vid     = 1
   max_vid     = 4094
 }
-`, rName),
+`, rName, rSlug),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_vlan_group.test", "name", rName),
-					resource.TestCheckResourceAttr("netbox_vlan_group.test", "slug", "tf-acc-test-vlan-group-slug"),
+					resource.TestCheckResourceAttr("netbox_vlan_group.test", "slug", rSlug),
 					resource.TestCheckResourceAttr("netbox_vlan_group.test", "description", "terraform test VLAN group"),
 					resource.TestCheckResourceAttr("netbox_vlan_group.test", "min_vid", "1"),
 					resource.TestCheckResourceAttr("netbox_vlan_group.test", "max_vid", "4094"),
@@ -69,12 +70,12 @@ resource "netbox_vlan_group" "test" {
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_vlan_group" "test" {
   name        = %q
-  slug        = "tf-acc-test-vlan-group-slug"
+  slug        = %q
   description = "terraform test VLAN group updated"
   min_vid     = 100
   max_vid     = 200
 }
-`, rName),
+`, rName, rSlug),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_vlan_group.test", "name", rName),
 					resource.TestCheckResourceAttr("netbox_vlan_group.test", "description", "terraform test VLAN group updated"),
@@ -88,9 +89,9 @@ resource "netbox_vlan_group" "test" {
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_vlan_group" "test" {
   name = %q
-  slug = "tf-acc-test-vlan-group-slug"
+  slug = %q
 }
-`, rNameRenamed),
+`, rNameRenamed, rSlug),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_vlan_group.test", "name", rNameRenamed),
 					func(s *terraform.State) error {

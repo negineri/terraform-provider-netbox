@@ -18,6 +18,7 @@ import (
 func TestAccRegionResource(t *testing.T) {
 	var capturedID string
 	rName := acctest.RandomWithPrefix("tf-acc-test-region")
+	rSlug := rName + "-s"
 	rNameRenamed := rName + "-renamed"
 
 	resource.ParallelTest(t, resource.TestCase{
@@ -41,13 +42,13 @@ resource "netbox_region" "test" {
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_region" "test" {
   name        = %q
-  slug        = "tf-acc-test-region-slug"
+  slug        = %q
   description = "terraform test region"
 }
-`, rName),
+`, rName, rSlug),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_region.test", "name", rName),
-					resource.TestCheckResourceAttr("netbox_region.test", "slug", "tf-acc-test-region-slug"),
+					resource.TestCheckResourceAttr("netbox_region.test", "slug", rSlug),
 					resource.TestCheckResourceAttr("netbox_region.test", "description", "terraform test region"),
 					resource.TestCheckResourceAttrSet("netbox_region.test", "id"),
 					func(s *terraform.State) error {
@@ -65,10 +66,10 @@ resource "netbox_region" "test" {
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_region" "test" {
   name        = %q
-  slug        = "tf-acc-test-region-slug"
+  slug        = %q
   description = "terraform test region updated"
 }
-`, rName),
+`, rName, rSlug),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_region.test", "name", rName),
 					resource.TestCheckResourceAttr("netbox_region.test", "description", "terraform test region updated"),
@@ -80,9 +81,9 @@ resource "netbox_region" "test" {
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_region" "test" {
   name = %q
-  slug = "tf-acc-test-region-slug"
+  slug = %q
 }
-`, rNameRenamed),
+`, rNameRenamed, rSlug),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_region.test", "name", rNameRenamed),
 					func(s *terraform.State) error {
