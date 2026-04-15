@@ -31,6 +31,8 @@ type manufacturersDataSourceModel struct {
 	Id                 types.String        `tfsdk:"id"`
 	Manufacturers      []manufacturerModel `tfsdk:"manufacturers"`
 	CustomFieldFilters types.Map           `tfsdk:"custom_field_filters"`
+	Name               types.String        `tfsdk:"name"`
+	Slug               types.String        `tfsdk:"slug"`
 }
 
 type manufacturerModel struct {
@@ -56,6 +58,14 @@ func (d *manufacturersDataSource) Schema(_ context.Context, _ datasource.SchemaR
 				MarkdownDescription: "Filter manufacturers by custom field values. Keys are custom field names, values are the filter values.",
 				Optional:            true,
 				ElementType:         types.StringType,
+			},
+			"name": schema.StringAttribute{
+				MarkdownDescription: "Filter by manufacturer name.",
+				Optional:            true,
+			},
+			"slug": schema.StringAttribute{
+				MarkdownDescription: "Filter by manufacturer slug.",
+				Optional:            true,
 			},
 			"manufacturers": schema.ListNestedAttribute{
 				MarkdownDescription: "List of manufacturers.",
@@ -112,9 +122,13 @@ func (d *manufacturersDataSource) Read(ctx context.Context, req datasource.ReadR
 
 	state.Manufacturers = []manufacturerModel{}
 
+	params := map[string]string{}
+	stringFilterParam(params, "name", state.Name)
+	stringFilterParam(params, "slug", state.Slug)
+
 	apiPath := "api/dcim/manufacturers/"
-	if query := buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters); query != "" {
-		apiPath += "?" + query
+	if q := combineQueryStrings(buildFilterQuery(params), buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters)); q != "" {
+		apiPath += "?" + q
 	}
 
 	bodyStr, err := d.client.Get(ctx, apiPath)

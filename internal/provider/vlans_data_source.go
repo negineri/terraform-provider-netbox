@@ -31,6 +31,11 @@ type vlansDataSourceModel struct {
 	Id                 types.String `tfsdk:"id"`
 	Vlans              []vlanModel  `tfsdk:"vlans"`
 	CustomFieldFilters types.Map    `tfsdk:"custom_field_filters"`
+	Name               types.String `tfsdk:"name"`
+	Status             types.String `tfsdk:"status"`
+	Vid                types.Int64  `tfsdk:"vid"`
+	SiteId             types.Int64  `tfsdk:"site_id"`
+	Tag                types.String `tfsdk:"tag"`
 }
 
 type vlanModel struct {
@@ -58,6 +63,26 @@ func (d *vlansDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, 
 				MarkdownDescription: "Filter VLANs by custom field values. Keys are custom field names, values are the filter values.",
 				Optional:            true,
 				ElementType:         types.StringType,
+			},
+			"name": schema.StringAttribute{
+				MarkdownDescription: "Filter by VLAN name.",
+				Optional:            true,
+			},
+			"status": schema.StringAttribute{
+				MarkdownDescription: "Filter by status (e.g. active, reserved, deprecated).",
+				Optional:            true,
+			},
+			"vid": schema.Int64Attribute{
+				MarkdownDescription: "Filter by VLAN ID (1-4094).",
+				Optional:            true,
+			},
+			"site_id": schema.Int64Attribute{
+				MarkdownDescription: "Filter by site ID.",
+				Optional:            true,
+			},
+			"tag": schema.StringAttribute{
+				MarkdownDescription: "Filter by tag slug.",
+				Optional:            true,
 			},
 			"vlans": schema.ListNestedAttribute{
 				MarkdownDescription: "List of VLANs.",
@@ -122,9 +147,16 @@ func (d *vlansDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 
 	state.Vlans = []vlanModel{}
 
+	params := map[string]string{}
+	stringFilterParam(params, "name", state.Name)
+	stringFilterParam(params, "status", state.Status)
+	int64FilterParam(params, "vid", state.Vid)
+	int64FilterParam(params, "site_id", state.SiteId)
+	stringFilterParam(params, "tag", state.Tag)
+
 	apiPath := "api/ipam/vlans/"
-	if query := buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters); query != "" {
-		apiPath += "?" + query
+	if q := combineQueryStrings(buildFilterQuery(params), buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters)); q != "" {
+		apiPath += "?" + q
 	}
 
 	bodyStr, err := d.client.Get(ctx, apiPath)

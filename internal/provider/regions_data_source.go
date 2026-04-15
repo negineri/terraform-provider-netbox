@@ -31,6 +31,8 @@ type regionsDataSourceModel struct {
 	Id                 types.String  `tfsdk:"id"`
 	Regions            []regionModel `tfsdk:"regions"`
 	CustomFieldFilters types.Map     `tfsdk:"custom_field_filters"`
+	Name               types.String  `tfsdk:"name"`
+	Slug               types.String  `tfsdk:"slug"`
 }
 
 type regionModel struct {
@@ -57,6 +59,14 @@ func (d *regionsDataSource) Schema(_ context.Context, _ datasource.SchemaRequest
 				MarkdownDescription: "Filter regions by custom field values. Keys are custom field names, values are the filter values.",
 				Optional:            true,
 				ElementType:         types.StringType,
+			},
+			"name": schema.StringAttribute{
+				MarkdownDescription: "Filter by region name.",
+				Optional:            true,
+			},
+			"slug": schema.StringAttribute{
+				MarkdownDescription: "Filter by region slug.",
+				Optional:            true,
 			},
 			"regions": schema.ListNestedAttribute{
 				MarkdownDescription: "List of regions.",
@@ -117,9 +127,13 @@ func (d *regionsDataSource) Read(ctx context.Context, req datasource.ReadRequest
 
 	state.Regions = []regionModel{}
 
+	params := map[string]string{}
+	stringFilterParam(params, "name", state.Name)
+	stringFilterParam(params, "slug", state.Slug)
+
 	apiPath := "api/dcim/regions/"
-	if query := buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters); query != "" {
-		apiPath += "?" + query
+	if q := combineQueryStrings(buildFilterQuery(params), buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters)); q != "" {
+		apiPath += "?" + q
 	}
 
 	bodyStr, err := d.client.Get(ctx, apiPath)

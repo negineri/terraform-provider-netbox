@@ -31,6 +31,9 @@ type locationsDataSourceModel struct {
 	Id                 types.String    `tfsdk:"id"`
 	Locations          []locationModel `tfsdk:"locations"`
 	CustomFieldFilters types.Map       `tfsdk:"custom_field_filters"`
+	Name               types.String    `tfsdk:"name"`
+	SiteId             types.Int64     `tfsdk:"site_id"`
+	Status             types.String    `tfsdk:"status"`
 }
 
 type locationModel struct {
@@ -59,6 +62,18 @@ func (d *locationsDataSource) Schema(_ context.Context, _ datasource.SchemaReque
 				MarkdownDescription: "Filter locations by custom field values. Keys are custom field names, values are the filter values.",
 				Optional:            true,
 				ElementType:         types.StringType,
+			},
+			"name": schema.StringAttribute{
+				MarkdownDescription: "Filter by location name.",
+				Optional:            true,
+			},
+			"site_id": schema.Int64Attribute{
+				MarkdownDescription: "Filter by site ID.",
+				Optional:            true,
+			},
+			"status": schema.StringAttribute{
+				MarkdownDescription: "Filter by status (e.g. active, planned, staging, decommissioning, retired).",
+				Optional:            true,
 			},
 			"locations": schema.ListNestedAttribute{
 				MarkdownDescription: "List of locations.",
@@ -127,9 +142,14 @@ func (d *locationsDataSource) Read(ctx context.Context, req datasource.ReadReque
 
 	state.Locations = []locationModel{}
 
+	params := map[string]string{}
+	stringFilterParam(params, "name", state.Name)
+	int64FilterParam(params, "site_id", state.SiteId)
+	stringFilterParam(params, "status", state.Status)
+
 	apiPath := "api/dcim/locations/"
-	if query := buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters); query != "" {
-		apiPath += "?" + query
+	if q := combineQueryStrings(buildFilterQuery(params), buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters)); q != "" {
+		apiPath += "?" + q
 	}
 
 	bodyStr, err := d.client.Get(ctx, apiPath)

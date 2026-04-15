@@ -31,6 +31,10 @@ type prefixesDataSourceModel struct {
 	Id                 types.String  `tfsdk:"id"`
 	Prefixes           []prefixModel `tfsdk:"prefixes"`
 	CustomFieldFilters types.Map     `tfsdk:"custom_field_filters"`
+	Status             types.String  `tfsdk:"status"`
+	SiteId             types.Int64   `tfsdk:"site_id"`
+	VrfId              types.Int64   `tfsdk:"vrf_id"`
+	Tag                types.String  `tfsdk:"tag"`
 }
 
 type prefixModel struct {
@@ -56,6 +60,22 @@ func (d *prefixesDataSource) Schema(_ context.Context, _ datasource.SchemaReques
 				MarkdownDescription: "Filter prefixes by custom field values. Keys are custom field names, values are the filter values.",
 				Optional:            true,
 				ElementType:         types.StringType,
+			},
+			"status": schema.StringAttribute{
+				MarkdownDescription: "Filter by status (e.g. active, container, reserved, deprecated).",
+				Optional:            true,
+			},
+			"site_id": schema.Int64Attribute{
+				MarkdownDescription: "Filter by site ID.",
+				Optional:            true,
+			},
+			"vrf_id": schema.Int64Attribute{
+				MarkdownDescription: "Filter by VRF ID.",
+				Optional:            true,
+			},
+			"tag": schema.StringAttribute{
+				MarkdownDescription: "Filter by tag slug.",
+				Optional:            true,
 			},
 			"prefixes": schema.ListNestedAttribute{
 				MarkdownDescription: "List of prefixes.",
@@ -112,9 +132,15 @@ func (d *prefixesDataSource) Read(ctx context.Context, req datasource.ReadReques
 
 	state.Prefixes = []prefixModel{}
 
+	params := map[string]string{}
+	stringFilterParam(params, "status", state.Status)
+	int64FilterParam(params, "site_id", state.SiteId)
+	int64FilterParam(params, "vrf_id", state.VrfId)
+	stringFilterParam(params, "tag", state.Tag)
+
 	apiPath := "api/ipam/prefixes/"
-	if query := buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters); query != "" {
-		apiPath += "?" + query
+	if q := combineQueryStrings(buildFilterQuery(params), buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters)); q != "" {
+		apiPath += "?" + q
 	}
 
 	bodyStr, err := d.client.Get(ctx, apiPath)
