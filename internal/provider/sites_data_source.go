@@ -31,6 +31,10 @@ type sitesDataSourceModel struct {
 	Id                 types.String `tfsdk:"id"`
 	Sites              []siteModel  `tfsdk:"sites"`
 	CustomFieldFilters types.Map    `tfsdk:"custom_field_filters"`
+	Name               types.String `tfsdk:"name"`
+	Status             types.String `tfsdk:"status"`
+	RegionId           types.Int64  `tfsdk:"region_id"`
+	Tag                types.String `tfsdk:"tag"`
 }
 
 type siteModel struct {
@@ -61,6 +65,22 @@ func (d *sitesDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, 
 				MarkdownDescription: "Filter sites by custom field values. Keys are custom field names, values are the filter values.",
 				Optional:            true,
 				ElementType:         types.StringType,
+			},
+			"name": schema.StringAttribute{
+				MarkdownDescription: "Filter by site name.",
+				Optional:            true,
+			},
+			"status": schema.StringAttribute{
+				MarkdownDescription: "Filter by status (e.g. active, planned, staging, decommissioning, retired).",
+				Optional:            true,
+			},
+			"region_id": schema.Int64Attribute{
+				MarkdownDescription: "Filter by region ID.",
+				Optional:            true,
+			},
+			"tag": schema.StringAttribute{
+				MarkdownDescription: "Filter by tag slug.",
+				Optional:            true,
 			},
 			"sites": schema.ListNestedAttribute{
 				MarkdownDescription: "List of sites.",
@@ -137,9 +157,15 @@ func (d *sitesDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 
 	state.Sites = []siteModel{}
 
+	params := map[string]string{}
+	stringFilterParam(params, "name", state.Name)
+	stringFilterParam(params, "status", state.Status)
+	int64FilterParam(params, "region_id", state.RegionId)
+	stringFilterParam(params, "tag", state.Tag)
+
 	apiPath := "api/dcim/sites/"
-	if query := buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters); query != "" {
-		apiPath += "?" + query
+	if q := combineQueryStrings(buildFilterQuery(params), buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters)); q != "" {
+		apiPath += "?" + q
 	}
 
 	bodyStr, err := d.client.Get(ctx, apiPath)

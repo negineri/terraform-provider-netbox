@@ -32,6 +32,11 @@ type devicesDataSourceModel struct {
 	Id                 types.String  `tfsdk:"id"`
 	Devices            []deviceModel `tfsdk:"devices"`
 	CustomFieldFilters types.Map     `tfsdk:"custom_field_filters"`
+	Name               types.String  `tfsdk:"name"`
+	Status             types.String  `tfsdk:"status"`
+	SiteId             types.Int64   `tfsdk:"site_id"`
+	RoleId             types.Int64   `tfsdk:"role_id"`
+	Tag                types.String  `tfsdk:"tag"`
 }
 
 type deviceModel struct {
@@ -55,6 +60,26 @@ func (d *devicesDataSource) Schema(_ context.Context, _ datasource.SchemaRequest
 				MarkdownDescription: "Filter devices by custom field values. Keys are custom field names, values are the filter values.",
 				Optional:            true,
 				ElementType:         types.StringType,
+			},
+			"name": schema.StringAttribute{
+				MarkdownDescription: "Filter by device name.",
+				Optional:            true,
+			},
+			"status": schema.StringAttribute{
+				MarkdownDescription: "Filter by status (e.g. active, planned, staged, failed, decommissioning, inventory, offline).",
+				Optional:            true,
+			},
+			"site_id": schema.Int64Attribute{
+				MarkdownDescription: "Filter by site ID.",
+				Optional:            true,
+			},
+			"role_id": schema.Int64Attribute{
+				MarkdownDescription: "Filter by device role ID.",
+				Optional:            true,
+			},
+			"tag": schema.StringAttribute{
+				MarkdownDescription: "Filter by tag slug.",
+				Optional:            true,
 			},
 			"devices": schema.ListNestedAttribute{
 				MarkdownDescription: "List of devices.",
@@ -103,9 +128,16 @@ func (d *devicesDataSource) Read(ctx context.Context, req datasource.ReadRequest
 
 	state.Devices = []deviceModel{}
 
+	params := map[string]string{}
+	stringFilterParam(params, "name", state.Name)
+	stringFilterParam(params, "status", state.Status)
+	int64FilterParam(params, "site_id", state.SiteId)
+	int64FilterParam(params, "role_id", state.RoleId)
+	stringFilterParam(params, "tag", state.Tag)
+
 	apiPath := "api/dcim/devices/"
-	if query := buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters); query != "" {
-		apiPath += "?" + query
+	if q := combineQueryStrings(buildFilterQuery(params), buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters)); q != "" {
+		apiPath += "?" + q
 	}
 
 	bodyStr, err := d.client.Get(ctx, apiPath)

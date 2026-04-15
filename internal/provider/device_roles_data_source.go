@@ -31,6 +31,8 @@ type deviceRolesDataSourceModel struct {
 	Id                 types.String      `tfsdk:"id"`
 	DeviceRoles        []deviceRoleModel `tfsdk:"device_roles"`
 	CustomFieldFilters types.Map         `tfsdk:"custom_field_filters"`
+	Name               types.String      `tfsdk:"name"`
+	Slug               types.String      `tfsdk:"slug"`
 }
 
 type deviceRoleModel struct {
@@ -58,6 +60,14 @@ func (d *deviceRolesDataSource) Schema(_ context.Context, _ datasource.SchemaReq
 				MarkdownDescription: "Filter device roles by custom field values. Keys are custom field names, values are the filter values.",
 				Optional:            true,
 				ElementType:         types.StringType,
+			},
+			"name": schema.StringAttribute{
+				MarkdownDescription: "Filter by device role name.",
+				Optional:            true,
+			},
+			"slug": schema.StringAttribute{
+				MarkdownDescription: "Filter by device role slug.",
+				Optional:            true,
 			},
 			"device_roles": schema.ListNestedAttribute{
 				MarkdownDescription: "List of device roles.",
@@ -122,9 +132,13 @@ func (d *deviceRolesDataSource) Read(ctx context.Context, req datasource.ReadReq
 
 	state.DeviceRoles = []deviceRoleModel{}
 
+	params := map[string]string{}
+	stringFilterParam(params, "name", state.Name)
+	stringFilterParam(params, "slug", state.Slug)
+
 	apiPath := "api/dcim/device-roles/"
-	if query := buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters); query != "" {
-		apiPath += "?" + query
+	if q := combineQueryStrings(buildFilterQuery(params), buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters)); q != "" {
+		apiPath += "?" + q
 	}
 
 	bodyStr, err := d.client.Get(ctx, apiPath)

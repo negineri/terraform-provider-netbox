@@ -31,6 +31,11 @@ type racksDataSourceModel struct {
 	Id                 types.String `tfsdk:"id"`
 	Racks              []rackModel  `tfsdk:"racks"`
 	CustomFieldFilters types.Map    `tfsdk:"custom_field_filters"`
+	Name               types.String `tfsdk:"name"`
+	SiteId             types.Int64  `tfsdk:"site_id"`
+	LocationId         types.Int64  `tfsdk:"location_id"`
+	Status             types.String `tfsdk:"status"`
+	Tag                types.String `tfsdk:"tag"`
 }
 
 type rackModel struct {
@@ -61,6 +66,26 @@ func (d *racksDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, 
 				MarkdownDescription: "Filter racks by custom field values. Keys are custom field names, values are the filter values.",
 				Optional:            true,
 				ElementType:         types.StringType,
+			},
+			"name": schema.StringAttribute{
+				MarkdownDescription: "Filter by rack name.",
+				Optional:            true,
+			},
+			"site_id": schema.Int64Attribute{
+				MarkdownDescription: "Filter by site ID.",
+				Optional:            true,
+			},
+			"location_id": schema.Int64Attribute{
+				MarkdownDescription: "Filter by location ID.",
+				Optional:            true,
+			},
+			"status": schema.StringAttribute{
+				MarkdownDescription: "Filter by status (e.g. active, planned, staged, failed, decommissioning, available, reserved, deprecated).",
+				Optional:            true,
+			},
+			"tag": schema.StringAttribute{
+				MarkdownDescription: "Filter by tag slug.",
+				Optional:            true,
 			},
 			"racks": schema.ListNestedAttribute{
 				MarkdownDescription: "List of racks.",
@@ -137,9 +162,16 @@ func (d *racksDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 
 	state.Racks = []rackModel{}
 
+	params := map[string]string{}
+	stringFilterParam(params, "name", state.Name)
+	int64FilterParam(params, "site_id", state.SiteId)
+	int64FilterParam(params, "location_id", state.LocationId)
+	stringFilterParam(params, "status", state.Status)
+	stringFilterParam(params, "tag", state.Tag)
+
 	apiPath := "api/dcim/racks/"
-	if query := buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters); query != "" {
-		apiPath += "?" + query
+	if q := combineQueryStrings(buildFilterQuery(params), buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters)); q != "" {
+		apiPath += "?" + q
 	}
 
 	bodyStr, err := d.client.Get(ctx, apiPath)
