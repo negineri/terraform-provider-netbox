@@ -18,6 +18,7 @@ import (
 func TestAccDeviceRoleResource(t *testing.T) {
 	var capturedID string
 	rName := acctest.RandomWithPrefix("tf-acc-test-device-role")
+	rSlug := rName + "-s"
 	rNameRenamed := rName + "-renamed"
 
 	resource.ParallelTest(t, resource.TestCase{
@@ -42,15 +43,15 @@ resource "netbox_device_role" "test" {
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_device_role" "test" {
   name        = %q
-  slug        = "tf-acc-test-device-role-slug"
+  slug        = %q
   color       = "aa1409"
   vm_role     = false
   description = "terraform test device role"
 }
-`, rName),
+`, rName, rSlug),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_device_role.test", "name", rName),
-					resource.TestCheckResourceAttr("netbox_device_role.test", "slug", "tf-acc-test-device-role-slug"),
+					resource.TestCheckResourceAttr("netbox_device_role.test", "slug", rSlug),
 					resource.TestCheckResourceAttr("netbox_device_role.test", "color", "aa1409"),
 					resource.TestCheckResourceAttr("netbox_device_role.test", "vm_role", "false"),
 					resource.TestCheckResourceAttr("netbox_device_role.test", "description", "terraform test device role"),
@@ -70,12 +71,12 @@ resource "netbox_device_role" "test" {
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_device_role" "test" {
   name        = %q
-  slug        = "tf-acc-test-device-role-slug"
+  slug        = %q
   color       = "4caf50"
   vm_role     = true
   description = "terraform test device role updated"
 }
-`, rName),
+`, rName, rSlug),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_device_role.test", "name", rName),
 					resource.TestCheckResourceAttr("netbox_device_role.test", "color", "4caf50"),
@@ -89,10 +90,10 @@ resource "netbox_device_role" "test" {
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_device_role" "test" {
   name  = %q
-  slug  = "tf-acc-test-device-role-slug"
+  slug  = %q
   color = "4caf50"
 }
-`, rNameRenamed),
+`, rNameRenamed, rSlug),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_device_role.test", "name", rNameRenamed),
 					func(s *terraform.State) error {

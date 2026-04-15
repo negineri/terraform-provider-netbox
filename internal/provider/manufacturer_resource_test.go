@@ -18,6 +18,7 @@ import (
 func TestAccManufacturerResource(t *testing.T) {
 	var capturedID string
 	rName := acctest.RandomWithPrefix("tf-acc-test-manufacturer")
+	rSlug := rName + "-s"
 	rNameRenamed := rName + "-renamed"
 
 	resource.ParallelTest(t, resource.TestCase{
@@ -41,13 +42,13 @@ resource "netbox_manufacturer" "test" {
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_manufacturer" "test" {
   name        = %q
-  slug        = "tf-acc-test-manufacturer-slug"
+  slug        = %q
   description = "terraform test manufacturer"
 }
-`, rName),
+`, rName, rSlug),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_manufacturer.test", "name", rName),
-					resource.TestCheckResourceAttr("netbox_manufacturer.test", "slug", "tf-acc-test-manufacturer-slug"),
+					resource.TestCheckResourceAttr("netbox_manufacturer.test", "slug", rSlug),
 					resource.TestCheckResourceAttr("netbox_manufacturer.test", "description", "terraform test manufacturer"),
 					resource.TestCheckResourceAttrSet("netbox_manufacturer.test", "id"),
 					func(s *terraform.State) error {
@@ -65,10 +66,10 @@ resource "netbox_manufacturer" "test" {
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_manufacturer" "test" {
   name        = %q
-  slug        = "tf-acc-test-manufacturer-slug"
+  slug        = %q
   description = "terraform test manufacturer updated"
 }
-`, rName),
+`, rName, rSlug),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_manufacturer.test", "name", rName),
 					resource.TestCheckResourceAttr("netbox_manufacturer.test", "description", "terraform test manufacturer updated"),
@@ -80,9 +81,9 @@ resource "netbox_manufacturer" "test" {
 				Config: providerConfig + fmt.Sprintf(`
 resource "netbox_manufacturer" "test" {
   name = %q
-  slug = "tf-acc-test-manufacturer-slug"
+  slug = %q
 }
-`, rNameRenamed),
+`, rNameRenamed, rSlug),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_manufacturer.test", "name", rNameRenamed),
 					func(s *terraform.State) error {
