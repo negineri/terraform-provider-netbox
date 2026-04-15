@@ -266,6 +266,8 @@ func (p *netboxProvider) DataSources(_ context.Context) []func() datasource.Data
 		NewVirtualMachineDataSource,
 		NewCustomFieldsDataSource,
 		NewCustomFieldDataSource,
+		NewRacksDataSource,
+		NewRackDataSource,
 	}
 }
 
@@ -291,6 +293,7 @@ func (p *netboxProvider) Resources(_ context.Context) []func() resource.Resource
 		NewVlanGroupResource,
 		NewVlanResource,
 		NewCustomFieldResource,
+		NewRackResource,
 	}
 }
 
