@@ -4,10 +4,68 @@
 package provider
 
 import (
+	"context"
+	"strings"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
+
+// TestBuildCustomFieldFilterQuery は buildCustomFieldFilterQuery のクエリ文字列生成を検証します。
+func TestBuildCustomFieldFilterQuery(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("nil map returns empty string", func(t *testing.T) {
+		got := buildCustomFieldFilterQuery(ctx, types.MapNull(types.StringType))
+		if got != "" {
+			t.Errorf("expected empty string, got %q", got)
+		}
+	})
+
+	t.Run("empty map returns empty string", func(t *testing.T) {
+		m, _ := types.MapValue(types.StringType, map[string]attr.Value{})
+		got := buildCustomFieldFilterQuery(ctx, m)
+		if got != "" {
+			t.Errorf("expected empty string, got %q", got)
+		}
+	})
+
+	t.Run("single filter produces cf_ prefix", func(t *testing.T) {
+		m, _ := types.MapValue(types.StringType, map[string]attr.Value{
+			"location_code": types.StringValue("TYO"),
+		})
+		got := buildCustomFieldFilterQuery(ctx, m)
+		if got != "cf_location_code=TYO" {
+			t.Errorf("expected %q, got %q", "cf_location_code=TYO", got)
+		}
+	})
+
+	t.Run("multiple filters are all included", func(t *testing.T) {
+		m, _ := types.MapValue(types.StringType, map[string]attr.Value{
+			"tier":          types.StringValue("core"),
+			"location_code": types.StringValue("TYO"),
+		})
+		got := buildCustomFieldFilterQuery(ctx, m)
+		// map の順序は不定なので各パラメータの存在を確認する
+		if !strings.Contains(got, "cf_tier=core") {
+			t.Errorf("expected cf_tier=core in %q", got)
+		}
+		if !strings.Contains(got, "cf_location_code=TYO") {
+			t.Errorf("expected cf_location_code=TYO in %q", got)
+		}
+	})
+
+	t.Run("special characters are percent-encoded", func(t *testing.T) {
+		m, _ := types.MapValue(types.StringType, map[string]attr.Value{
+			"note": types.StringValue("hello world"),
+		})
+		got := buildCustomFieldFilterQuery(ctx, m)
+		if got != "cf_note=hello+world" && got != "cf_note=hello%20world" {
+			t.Errorf("expected encoded space in %q", got)
+		}
+	})
+}
 
 // TestConvertCustomFieldValue は convertCustomFieldValue の型別変換を検証します。
 func TestConvertCustomFieldValue(t *testing.T) {

@@ -28,8 +28,9 @@ type regionsDataSource struct {
 }
 
 type regionsDataSourceModel struct {
-	Id      types.String  `tfsdk:"id"`
-	Regions []regionModel `tfsdk:"regions"`
+	Id                 types.String  `tfsdk:"id"`
+	Regions            []regionModel `tfsdk:"regions"`
+	CustomFieldFilters types.Map     `tfsdk:"custom_field_filters"`
 }
 
 type regionModel struct {
@@ -51,6 +52,11 @@ func (d *regionsDataSource) Schema(_ context.Context, _ datasource.SchemaRequest
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Placeholder identifier for the data source.",
 				Computed:            true,
+			},
+			"custom_field_filters": schema.MapAttribute{
+				MarkdownDescription: "Filter regions by custom field values. Keys are custom field names, values are the filter values.",
+				Optional:            true,
+				ElementType:         types.StringType,
 			},
 			"regions": schema.ListNestedAttribute{
 				MarkdownDescription: "List of regions.",
@@ -111,7 +117,12 @@ func (d *regionsDataSource) Read(ctx context.Context, req datasource.ReadRequest
 
 	state.Regions = []regionModel{}
 
-	bodyStr, err := d.client.Get(ctx, "api/dcim/regions/")
+	apiPath := "api/dcim/regions/"
+	if query := buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters); query != "" {
+		apiPath += "?" + query
+	}
+
+	bodyStr, err := d.client.Get(ctx, apiPath)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to fetch regions, got error: %s", err))
 		return

@@ -28,8 +28,9 @@ type locationsDataSource struct {
 }
 
 type locationsDataSourceModel struct {
-	Id        types.String    `tfsdk:"id"`
-	Locations []locationModel `tfsdk:"locations"`
+	Id                 types.String    `tfsdk:"id"`
+	Locations          []locationModel `tfsdk:"locations"`
+	CustomFieldFilters types.Map       `tfsdk:"custom_field_filters"`
 }
 
 type locationModel struct {
@@ -53,6 +54,11 @@ func (d *locationsDataSource) Schema(_ context.Context, _ datasource.SchemaReque
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Placeholder identifier for the data source.",
 				Computed:            true,
+			},
+			"custom_field_filters": schema.MapAttribute{
+				MarkdownDescription: "Filter locations by custom field values. Keys are custom field names, values are the filter values.",
+				Optional:            true,
+				ElementType:         types.StringType,
 			},
 			"locations": schema.ListNestedAttribute{
 				MarkdownDescription: "List of locations.",
@@ -121,7 +127,12 @@ func (d *locationsDataSource) Read(ctx context.Context, req datasource.ReadReque
 
 	state.Locations = []locationModel{}
 
-	bodyStr, err := d.client.Get(ctx, "api/dcim/locations/")
+	apiPath := "api/dcim/locations/"
+	if query := buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters); query != "" {
+		apiPath += "?" + query
+	}
+
+	bodyStr, err := d.client.Get(ctx, apiPath)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to fetch locations, got error: %s", err))
 		return

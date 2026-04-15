@@ -6,7 +6,9 @@ package provider
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strconv"
+	"strings"
 
 	"terraform-provider-netbox/internal/client"
 
@@ -17,6 +19,25 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
+
+// buildCustomFieldFilterQuery は custom_field_filters の types.Map から
+// NetBox API 用のクエリ文字列 ("cf_<name>=<value>&...") を構築します。
+// フィルタが空または null の場合は空文字を返します。
+func buildCustomFieldFilterQuery(ctx context.Context, filters types.Map) string {
+	if filters.IsNull() || filters.IsUnknown() {
+		return ""
+	}
+	var vals map[string]string
+	diags := filters.ElementsAs(ctx, &vals, false)
+	if diags.HasError() || len(vals) == 0 {
+		return ""
+	}
+	params := make([]string, 0, len(vals))
+	for k, v := range vals {
+		params = append(params, "cf_"+url.QueryEscape(k)+"="+url.QueryEscape(v))
+	}
+	return strings.Join(params, "&")
+}
 
 // customFieldsSchema は custom_fields 属性のスキーマ定義を返します。
 func customFieldsSchema() schema.MapAttribute {

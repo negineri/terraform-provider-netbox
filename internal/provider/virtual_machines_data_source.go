@@ -28,8 +28,9 @@ type virtualMachinesDataSource struct {
 }
 
 type virtualMachinesDataSourceModel struct {
-	Id              types.String          `tfsdk:"id"`
-	VirtualMachines []virtualMachineModel `tfsdk:"virtual_machines"`
+	Id                 types.String          `tfsdk:"id"`
+	VirtualMachines    []virtualMachineModel `tfsdk:"virtual_machines"`
+	CustomFieldFilters types.Map             `tfsdk:"custom_field_filters"`
 }
 
 type virtualMachineModel struct {
@@ -57,6 +58,11 @@ func (d *virtualMachinesDataSource) Schema(_ context.Context, _ datasource.Schem
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Placeholder identifier for the data source.",
 				Computed:            true,
+			},
+			"custom_field_filters": schema.MapAttribute{
+				MarkdownDescription: "Filter virtual machines by custom field values. Keys are custom field names, values are the filter values.",
+				Optional:            true,
+				ElementType:         types.StringType,
 			},
 			"virtual_machines": schema.ListNestedAttribute{
 				MarkdownDescription: "List of virtual machines.",
@@ -141,7 +147,12 @@ func (d *virtualMachinesDataSource) Read(ctx context.Context, req datasource.Rea
 
 	state.VirtualMachines = []virtualMachineModel{}
 
-	bodyStr, err := d.client.Get(ctx, "api/virtualization/virtual-machines/")
+	apiPath := "api/virtualization/virtual-machines/"
+	if query := buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters); query != "" {
+		apiPath += "?" + query
+	}
+
+	bodyStr, err := d.client.Get(ctx, apiPath)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to fetch virtual machines, got error: %s", err))
 		return
