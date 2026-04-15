@@ -40,7 +40,7 @@ data "netbox_custom_field" "test" {
 					resource.TestCheckResourceAttr("data.netbox_custom_field.test", "label", "TF Acc Data Source Test"),
 					resource.TestCheckResourceAttr("data.netbox_custom_field.test", "type", "text"),
 					resource.TestCheckResourceAttr("data.netbox_custom_field.test", "content_types.#", "1"),
-					resource.TestCheckResourceAttr("data.netbox_custom_field.test", "content_types.0", "dcim.device"),
+					resource.TestCheckTypeSetElemAttr("data.netbox_custom_field.test", "content_types.*", "dcim.device"),
 					resource.TestCheckResourceAttr("data.netbox_custom_field.test", "description", "terraform acceptance test data source"),
 					resource.TestCheckResourceAttr("data.netbox_custom_field.test", "weight", "150"),
 					resource.TestCheckResourceAttrSet("data.netbox_custom_field.test", "id"),

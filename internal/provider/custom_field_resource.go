@@ -36,7 +36,7 @@ type customFieldResourceModel struct {
 	Name         types.String `tfsdk:"name"`
 	Label        types.String `tfsdk:"label"`
 	Type         types.String `tfsdk:"type"`
-	ContentTypes types.List   `tfsdk:"content_types"`
+	ContentTypes types.Set    `tfsdk:"content_types"`
 	Required     types.Bool   `tfsdk:"required"`
 	Description  types.String `tfsdk:"description"`
 	Default      types.String `tfsdk:"default"`
@@ -78,8 +78,8 @@ func (r *customFieldResource) Schema(_ context.Context, _ resource.SchemaRequest
 				MarkdownDescription: "The type of the custom field. One of: text, longtext, integer, decimal, boolean, date, datetime, url, json, select, multiselect, object, multiobject.",
 				Required:            true,
 			},
-			"content_types": schema.ListAttribute{
-				MarkdownDescription: "List of content types this custom field is assigned to (e.g. \"dcim.device\").",
+			"content_types": schema.SetAttribute{
+				MarkdownDescription: "Set of content types this custom field is assigned to (e.g. \"dcim.device\").",
 				Required:            true,
 				ElementType:         types.StringType,
 			},
@@ -423,7 +423,7 @@ func setCustomFieldStateFromAPI(state *customFieldResourceModel, api map[string]
 				elems = append(elems, types.StringValue(s))
 			}
 		}
-		state.ContentTypes = types.ListValueMust(types.StringType, elems)
+		state.ContentTypes = types.SetValueMust(types.StringType, elems)
 	}
 	if req, ok := api["required"].(bool); ok {
 		state.Required = types.BoolValue(req)

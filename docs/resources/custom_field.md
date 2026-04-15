@@ -59,7 +59,7 @@ resource "netbox_custom_field" "rack_units" {
 
 ### Required
 
-- `content_types` (List of String) List of content types this custom field is assigned to (e.g. "dcim.device").
+- `content_types` (Set of String) Set of content types this custom field is assigned to (e.g. "dcim.device").
 - `name` (String) Internal field name. Must be unique and contain only alphanumerics and underscores.
 - `type` (String) The type of the custom field. One of: text, longtext, integer, decimal, boolean, date, datetime, url, json, select, multiselect, object, multiobject.
 
