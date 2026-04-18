@@ -28,14 +28,18 @@ type deviceDataSource struct {
 }
 
 type deviceDataSourceModel struct {
-	Id           types.Int64  `tfsdk:"id"`
-	Name         types.String `tfsdk:"name"`
-	DeviceTypeId types.Int64  `tfsdk:"device_type_id"`
-	RoleId       types.Int64  `tfsdk:"role_id"`
-	SiteId       types.Int64  `tfsdk:"site_id"`
-	Status       types.String `tfsdk:"status"`
-	Description  types.String `tfsdk:"description"`
-	Serial       types.String `tfsdk:"serial"`
+	Id            types.Int64  `tfsdk:"id"`
+	Name          types.String `tfsdk:"name"`
+	DeviceTypeId  types.Int64  `tfsdk:"device_type_id"`
+	RoleId        types.Int64  `tfsdk:"role_id"`
+	SiteId        types.Int64  `tfsdk:"site_id"`
+	Status        types.String `tfsdk:"status"`
+	Description   types.String `tfsdk:"description"`
+	Serial        types.String `tfsdk:"serial"`
+	PrimaryIPv4Id types.Int64  `tfsdk:"primary_ipv4_id"`
+	PrimaryIPv4   types.String `tfsdk:"primary_ipv4"`
+	PrimaryIPv6Id types.Int64  `tfsdk:"primary_ipv6_id"`
+	PrimaryIPv6   types.String `tfsdk:"primary_ipv6"`
 }
 
 func (d *deviceDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -76,6 +80,22 @@ func (d *deviceDataSource) Schema(_ context.Context, _ datasource.SchemaRequest,
 			},
 			"serial": schema.StringAttribute{
 				MarkdownDescription: "Serial number of the device.",
+				Computed:            true,
+			},
+			"primary_ipv4_id": schema.Int64Attribute{
+				MarkdownDescription: "The ID of the primary IPv4 address.",
+				Computed:            true,
+			},
+			"primary_ipv4": schema.StringAttribute{
+				MarkdownDescription: "The primary IPv4 address in CIDR notation.",
+				Computed:            true,
+			},
+			"primary_ipv6_id": schema.Int64Attribute{
+				MarkdownDescription: "The ID of the primary IPv6 address.",
+				Computed:            true,
+			},
+			"primary_ipv6": schema.StringAttribute{
+				MarkdownDescription: "The primary IPv6 address in CIDR notation.",
 				Computed:            true,
 			},
 		},
@@ -148,6 +168,32 @@ func (d *deviceDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 	}
 	if serial, ok := apiResponse["serial"].(string); ok {
 		state.Serial = types.StringValue(serial)
+	}
+	if ipv4Map, ok := apiResponse["primary_ip4"].(map[string]any); ok {
+		if idFloat, ok := ipv4Map["id"].(float64); ok {
+			state.PrimaryIPv4Id = types.Int64Value(int64(idFloat))
+		}
+		if addr, ok := ipv4Map["address"].(string); ok {
+			state.PrimaryIPv4 = types.StringValue(addr)
+		} else {
+			state.PrimaryIPv4 = types.StringNull()
+		}
+	} else {
+		state.PrimaryIPv4Id = types.Int64Null()
+		state.PrimaryIPv4 = types.StringNull()
+	}
+	if ipv6Map, ok := apiResponse["primary_ip6"].(map[string]any); ok {
+		if idFloat, ok := ipv6Map["id"].(float64); ok {
+			state.PrimaryIPv6Id = types.Int64Value(int64(idFloat))
+		}
+		if addr, ok := ipv6Map["address"].(string); ok {
+			state.PrimaryIPv6 = types.StringValue(addr)
+		} else {
+			state.PrimaryIPv6 = types.StringNull()
+		}
+	} else {
+		state.PrimaryIPv6Id = types.Int64Null()
+		state.PrimaryIPv6 = types.StringNull()
 	}
 
 	tflog.Trace(ctx, "read a data source")

@@ -51,3 +51,7 @@ Read-Only:
 
 - `id` (Number) The ID of the device.
 - `name` (String) The name of the device.
+- `primary_ipv4` (String) The primary IPv4 address in CIDR notation.
+- `primary_ipv4_id` (Number) The ID of the primary IPv4 address.
+- `primary_ipv6` (String) The primary IPv6 address in CIDR notation.
+- `primary_ipv6_id` (Number) The ID of the primary IPv6 address.

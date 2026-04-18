@@ -40,8 +40,12 @@ type devicesDataSourceModel struct {
 }
 
 type deviceModel struct {
-	Id   types.Int64  `tfsdk:"id"`
-	Name types.String `tfsdk:"name"`
+	Id            types.Int64  `tfsdk:"id"`
+	Name          types.String `tfsdk:"name"`
+	PrimaryIPv4Id types.Int64  `tfsdk:"primary_ipv4_id"`
+	PrimaryIPv4   types.String `tfsdk:"primary_ipv4"`
+	PrimaryIPv6Id types.Int64  `tfsdk:"primary_ipv6_id"`
+	PrimaryIPv6   types.String `tfsdk:"primary_ipv6"`
 }
 
 func (d *devicesDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -92,6 +96,22 @@ func (d *devicesDataSource) Schema(_ context.Context, _ datasource.SchemaRequest
 						},
 						"name": schema.StringAttribute{
 							MarkdownDescription: "The name of the device.",
+							Computed:            true,
+						},
+						"primary_ipv4_id": schema.Int64Attribute{
+							MarkdownDescription: "The ID of the primary IPv4 address.",
+							Computed:            true,
+						},
+						"primary_ipv4": schema.StringAttribute{
+							MarkdownDescription: "The primary IPv4 address in CIDR notation.",
+							Computed:            true,
+						},
+						"primary_ipv6_id": schema.Int64Attribute{
+							MarkdownDescription: "The ID of the primary IPv6 address.",
+							Computed:            true,
+						},
+						"primary_ipv6": schema.StringAttribute{
+							MarkdownDescription: "The primary IPv6 address in CIDR notation.",
 							Computed:            true,
 						},
 					},
@@ -146,9 +166,16 @@ func (d *devicesDataSource) Read(ctx context.Context, req datasource.ReadRequest
 		return
 	}
 
+	type ApiIPRef struct {
+		ID      int64  `json:"id"`
+		Address string `json:"address"`
+	}
+
 	type ApiDevice struct {
-		ID   int64  `json:"id"`
-		Name string `json:"name"`
+		ID          int64     `json:"id"`
+		Name        string    `json:"name"`
+		PrimaryIPv4 *ApiIPRef `json:"primary_ip4"`
+		PrimaryIPv6 *ApiIPRef `json:"primary_ip6"`
 	}
 
 	type ApiDevicesResponse struct {
@@ -166,6 +193,20 @@ func (d *devicesDataSource) Read(ctx context.Context, req datasource.ReadRequest
 		deviceState := deviceModel{
 			Id:   types.Int64Value(result.ID),
 			Name: types.StringValue(result.Name),
+		}
+		if result.PrimaryIPv4 != nil {
+			deviceState.PrimaryIPv4Id = types.Int64Value(result.PrimaryIPv4.ID)
+			deviceState.PrimaryIPv4 = types.StringValue(result.PrimaryIPv4.Address)
+		} else {
+			deviceState.PrimaryIPv4Id = types.Int64Null()
+			deviceState.PrimaryIPv4 = types.StringNull()
+		}
+		if result.PrimaryIPv6 != nil {
+			deviceState.PrimaryIPv6Id = types.Int64Value(result.PrimaryIPv6.ID)
+			deviceState.PrimaryIPv6 = types.StringValue(result.PrimaryIPv6.Address)
+		} else {
+			deviceState.PrimaryIPv6Id = types.Int64Null()
+			deviceState.PrimaryIPv6 = types.StringNull()
 		}
 		state.Devices = append(state.Devices, deviceState)
 	}

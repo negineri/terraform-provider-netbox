@@ -39,6 +39,10 @@ output "device_status" {
 - `description` (String) Description for the device.
 - `device_type_id` (Number) The ID of the device type.
 - `name` (String) The name of the device.
+- `primary_ipv4` (String) The primary IPv4 address in CIDR notation.
+- `primary_ipv4_id` (Number) The ID of the primary IPv4 address.
+- `primary_ipv6` (String) The primary IPv6 address in CIDR notation.
+- `primary_ipv6_id` (Number) The ID of the primary IPv6 address.
 - `role_id` (Number) The ID of the device role.
 - `serial` (String) Serial number of the device.
 - `site_id` (Number) The ID of the site where the device is located.
