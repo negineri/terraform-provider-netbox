@@ -35,6 +35,7 @@ type ipAddressesDataSourceModel struct {
 	DnsName            types.String     `tfsdk:"dns_name"`
 	VrfId              types.Int64      `tfsdk:"vrf_id"`
 	Tag                types.String     `tfsdk:"tag"`
+	Family             types.Int64      `tfsdk:"family"`
 }
 
 type ipAddressModel struct {
@@ -78,6 +79,10 @@ func (d *ipAddressesDataSource) Schema(_ context.Context, _ datasource.SchemaReq
 			},
 			"tag": schema.StringAttribute{
 				MarkdownDescription: "Filter by tag slug.",
+				Optional:            true,
+			},
+			"family": schema.Int64Attribute{
+				MarkdownDescription: "Filter by address family (4 for IPv4, 6 for IPv6).",
 				Optional:            true,
 			},
 			"ip_addresses": schema.ListNestedAttribute{
@@ -152,6 +157,7 @@ func (d *ipAddressesDataSource) Read(ctx context.Context, req datasource.ReadReq
 	stringFilterParam(params, "dns_name", state.DnsName)
 	int64FilterParam(params, "vrf_id", state.VrfId)
 	stringFilterParam(params, "tag", state.Tag)
+	int64FilterParam(params, "family", state.Family)
 
 	apiPath := "api/ipam/ip-addresses/"
 	if q := combineQueryStrings(buildFilterQuery(params), buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters)); q != "" {
