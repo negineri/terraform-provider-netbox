@@ -34,6 +34,7 @@ output "ip_address_count" {
 
 - `custom_field_filters` (Map of String) Filter IP addresses by custom field values. Keys are custom field names, values are the filter values.
 - `dns_name` (String) Filter by DNS name.
+- `family` (Number) Filter by address family (4 for IPv4, 6 for IPv6).
 - `status` (String) Filter by status (e.g. active, reserved, deprecated, dhcp, slaac).
 - `tag` (String) Filter by tag slug.
 - `vrf_id` (Number) Filter by VRF ID.
