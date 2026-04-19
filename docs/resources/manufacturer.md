@@ -24,7 +24,7 @@ Manages a Manufacturer in Netbox.
 - `custom_fields` (Map of String) Custom field values as a map of field name to string value.
 - `description` (String) Description for the manufacturer.
 - `slug` (String) URL-friendly unique shorthand for the manufacturer. If omitted, auto-generated from name.
-- `tags` (List of Number) List of tag IDs to assign to the manufacturer.
+- `tags` (Set of Number) Set of tag IDs to assign to the manufacturer.
 
 ### Read-Only
 

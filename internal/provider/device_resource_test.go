@@ -230,7 +230,7 @@ resource "netbox_device" "test" {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_device.test", "name", rName),
 					resource.TestCheckResourceAttr("netbox_device.test", "tags.#", "1"),
-					resource.TestCheckResourceAttr("netbox_device.test", "tags.0", "37"),
+					resource.TestCheckTypeSetElemAttr("netbox_device.test", "tags.*", "37"),
 					resource.TestCheckResourceAttrSet("netbox_device.test", "id"),
 				),
 			},

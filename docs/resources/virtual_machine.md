@@ -45,7 +45,7 @@ resource "netbox_virtual_machine" "example" {
 - `role_id` (Number) The ID of the role assigned to the virtual machine.
 - `site_id` (Number) The ID of the site where the virtual machine is located.
 - `status` (String) The status of the virtual machine (e.g., active, offline, planned, staged, failed, decommissioning).
-- `tags` (List of Number) List of tag IDs to assign to the virtual machine.
+- `tags` (Set of Number) Set of tag IDs to assign to the virtual machine.
 - `vcpus` (Number) The number of virtual CPUs allocated to the virtual machine.
 
 ### Read-Only

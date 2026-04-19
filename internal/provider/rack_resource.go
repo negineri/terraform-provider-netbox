@@ -41,7 +41,7 @@ type rackResourceModel struct {
 	FacilityId   types.String `tfsdk:"facility_id"`
 	UHeight      types.Int64  `tfsdk:"u_height"`
 	Description  types.String `tfsdk:"description"`
-	Tags         types.List   `tfsdk:"tags"`
+	Tags         types.Set    `tfsdk:"tags"`
 	CustomFields types.Map    `tfsdk:"custom_fields"`
 }
 
@@ -92,9 +92,9 @@ func (r *rackResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				MarkdownDescription: "Description for the rack.",
 				Optional:            true,
 			},
-			"tags": schema.ListAttribute{
+			"tags": schema.SetAttribute{
 				ElementType:         types.Int64Type,
-				MarkdownDescription: "List of tag IDs to assign to the rack.",
+				MarkdownDescription: "Set of tag IDs to assign to the rack.",
 				Optional:            true,
 			},
 			"custom_fields": customFieldsSchema(),
@@ -273,10 +273,10 @@ func (r *rackResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 					}
 				}
 			}
-			listVal, diags := types.ListValue(types.Int64Type, tagVals)
+			setVal, diags := types.SetValue(types.Int64Type, tagVals)
 			resp.Diagnostics.Append(diags...)
 			if !resp.Diagnostics.HasError() {
-				state.Tags = listVal
+				state.Tags = setVal
 			}
 		}
 	}

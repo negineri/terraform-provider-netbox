@@ -40,7 +40,7 @@ resource "netbox_device" "example" {
 - `description` (String) Description for the device.
 - `serial` (String) Serial number of the device.
 - `status` (String) The status of the device (e.g., active, offline, planned, staged, failed, decommissioning).
-- `tags` (List of Number) List of tag IDs to assign to the device.
+- `tags` (Set of Number) Set of tag IDs to assign to the device.
 
 ### Read-Only
 
