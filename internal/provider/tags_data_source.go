@@ -28,8 +28,11 @@ type tagsDataSource struct {
 }
 
 type tagsDataSourceModel struct {
-	Id   types.String `tfsdk:"id"`
-	Tags []tagModel   `tfsdk:"tags"`
+	Id    types.String `tfsdk:"id"`
+	Tags  []tagModel   `tfsdk:"tags"`
+	Name  types.String `tfsdk:"name"`
+	Slug  types.String `tfsdk:"slug"`
+	Color types.String `tfsdk:"color"`
 }
 
 type tagModel struct {
@@ -51,6 +54,18 @@ func (d *tagsDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Placeholder identifier for the data source.",
 				Computed:            true,
+			},
+			"name": schema.StringAttribute{
+				MarkdownDescription: "Filter by tag name.",
+				Optional:            true,
+			},
+			"slug": schema.StringAttribute{
+				MarkdownDescription: "Filter by tag slug.",
+				Optional:            true,
+			},
+			"color": schema.StringAttribute{
+				MarkdownDescription: "Filter by tag color (6-digit hex code).",
+				Optional:            true,
 			},
 			"tags": schema.ListNestedAttribute{
 				MarkdownDescription: "List of tags.",
@@ -111,7 +126,17 @@ func (d *tagsDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 
 	state.Tags = []tagModel{}
 
-	bodyStr, err := d.client.Get(ctx, "api/extras/tags/")
+	params := map[string]string{}
+	stringFilterParam(params, "name", state.Name)
+	stringFilterParam(params, "slug", state.Slug)
+	stringFilterParam(params, "color", state.Color)
+
+	apiPath := "api/extras/tags/"
+	if q := buildFilterQuery(params); q != "" {
+		apiPath += "?" + q
+	}
+
+	bodyStr, err := d.client.Get(ctx, apiPath)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to fetch tags, got error: %s", err))
 		return
