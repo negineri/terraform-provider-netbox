@@ -63,7 +63,7 @@ resource "netbox_rack" "with_location" {
 - `location_id` (Number) The ID of the location within the site.
 - `role_id` (Number) The ID of the rack role.
 - `status` (String) The status of the rack (e.g., active, planned, staged, failed, decommissioning, retired).
-- `tags` (List of Number) List of tag IDs to assign to the rack.
+- `tags` (Set of Number) Set of tag IDs to assign to the rack.
 - `u_height` (Number) Height in rack units.
 
 ### Read-Only

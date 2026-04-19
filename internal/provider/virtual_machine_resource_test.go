@@ -225,7 +225,7 @@ resource "netbox_virtual_machine" "test_tags" {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_virtual_machine.test_tags", "name", rName),
 					resource.TestCheckResourceAttr("netbox_virtual_machine.test_tags", "tags.#", "1"),
-					resource.TestCheckResourceAttr("netbox_virtual_machine.test_tags", "tags.0", "37"),
+					resource.TestCheckTypeSetElemAttr("netbox_virtual_machine.test_tags", "tags.*", "37"),
 					resource.TestCheckResourceAttrSet("netbox_virtual_machine.test_tags", "id"),
 				),
 			},

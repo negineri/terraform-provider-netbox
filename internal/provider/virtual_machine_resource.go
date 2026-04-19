@@ -43,7 +43,7 @@ type virtualMachineResourceModel struct {
 	Memory       types.Int64  `tfsdk:"memory"`
 	Disk         types.Int64  `tfsdk:"disk"`
 	Description  types.String `tfsdk:"description"`
-	Tags         types.List   `tfsdk:"tags"`
+	Tags         types.Set    `tfsdk:"tags"`
 	CustomFields types.Map    `tfsdk:"custom_fields"`
 }
 
@@ -102,9 +102,9 @@ func (r *virtualMachineResource) Schema(_ context.Context, _ resource.SchemaRequ
 				MarkdownDescription: "Description for the virtual machine.",
 				Optional:            true,
 			},
-			"tags": schema.ListAttribute{
+			"tags": schema.SetAttribute{
 				ElementType:         types.Int64Type,
-				MarkdownDescription: "List of tag IDs to assign to the virtual machine.",
+				MarkdownDescription: "Set of tag IDs to assign to the virtual machine.",
 				Optional:            true,
 			},
 			"custom_fields": customFieldsSchema(),
@@ -312,10 +312,10 @@ func (r *virtualMachineResource) Read(ctx context.Context, req resource.ReadRequ
 					}
 				}
 			}
-			listVal, diags := types.ListValue(types.Int64Type, tagVals)
+			setVal, diags := types.SetValue(types.Int64Type, tagVals)
 			resp.Diagnostics.Append(diags...)
 			if !resp.Diagnostics.HasError() {
-				state.Tags = listVal
+				state.Tags = setVal
 			}
 		}
 	}

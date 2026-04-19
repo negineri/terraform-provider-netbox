@@ -40,7 +40,7 @@ type deviceResourceModel struct {
 	Status       types.String `tfsdk:"status"`
 	Description  types.String `tfsdk:"description"`
 	Serial       types.String `tfsdk:"serial"`
-	Tags         types.List   `tfsdk:"tags"`
+	Tags         types.Set    `tfsdk:"tags"`
 	CustomFields types.Map    `tfsdk:"custom_fields"`
 }
 
@@ -87,9 +87,9 @@ func (r *deviceResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				MarkdownDescription: "Serial number of the device.",
 				Optional:            true,
 			},
-			"tags": schema.ListAttribute{
+			"tags": schema.SetAttribute{
 				ElementType:         types.Int64Type,
-				MarkdownDescription: "List of tag IDs to assign to the device.",
+				MarkdownDescription: "Set of tag IDs to assign to the device.",
 				Optional:            true,
 			},
 			"custom_fields": customFieldsSchema(),
@@ -260,10 +260,10 @@ func (r *deviceResource) Read(ctx context.Context, req resource.ReadRequest, res
 					}
 				}
 			}
-			listVal, diags := types.ListValue(types.Int64Type, tagVals)
+			setVal, diags := types.SetValue(types.Int64Type, tagVals)
 			resp.Diagnostics.Append(diags...)
 			if !resp.Diagnostics.HasError() {
-				state.Tags = listVal
+				state.Tags = setVal
 			}
 		}
 	}

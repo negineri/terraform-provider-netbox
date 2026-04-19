@@ -27,7 +27,7 @@ Manages a Device Type in Netbox.
 - `is_full_depth` (Boolean) Whether the device type occupies the full depth of a rack.
 - `part_number` (String) Discrete part number for the device type.
 - `slug` (String) URL-friendly unique shorthand for the device type. If omitted, auto-generated from model.
-- `tags` (List of Number) List of tag IDs to assign to the device type.
+- `tags` (Set of Number) Set of tag IDs to assign to the device type.
 - `u_height` (Number) Device height in rack units (supports fractional values like 0.5).
 
 ### Read-Only

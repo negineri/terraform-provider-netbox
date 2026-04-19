@@ -36,7 +36,7 @@ type manufacturerResourceModel struct {
 	Name         types.String `tfsdk:"name"`
 	Slug         types.String `tfsdk:"slug"`
 	Description  types.String `tfsdk:"description"`
-	Tags         types.List   `tfsdk:"tags"`
+	Tags         types.Set    `tfsdk:"tags"`
 	CustomFields types.Map    `tfsdk:"custom_fields"`
 }
 
@@ -68,9 +68,9 @@ func (r *manufacturerResource) Schema(_ context.Context, _ resource.SchemaReques
 				MarkdownDescription: "Description for the manufacturer.",
 				Optional:            true,
 			},
-			"tags": schema.ListAttribute{
+			"tags": schema.SetAttribute{
 				ElementType:         types.Int64Type,
-				MarkdownDescription: "List of tag IDs to assign to the manufacturer.",
+				MarkdownDescription: "Set of tag IDs to assign to the manufacturer.",
 				Optional:            true,
 			},
 			"custom_fields": customFieldsSchema(),
@@ -216,10 +216,10 @@ func (r *manufacturerResource) Read(ctx context.Context, req resource.ReadReques
 					}
 				}
 			}
-			listVal, diags := types.ListValue(types.Int64Type, tagVals)
+			setVal, diags := types.SetValue(types.Int64Type, tagVals)
 			resp.Diagnostics.Append(diags...)
 			if !resp.Diagnostics.HasError() {
-				state.Tags = listVal
+				state.Tags = setVal
 			}
 		}
 	}
