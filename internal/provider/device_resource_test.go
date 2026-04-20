@@ -357,9 +357,12 @@ resource "netbox_device" "test" {
 }
 
 // TestAccDeviceResourceWithTenantAndPlatform は tenant_id・platform_id フィールドの acceptance test です。
-// 実行前に NetBox 上に tenant_id=1, platform_id=1 が存在している必要があります。
+// テナントとプラットフォームを動的に作成して検証します。
 func TestAccDeviceResourceWithTenantAndPlatform(t *testing.T) {
-	rName := acctest.RandomWithPrefix("tf-acc-test-device-tenant")
+	rBaseName := acctest.RandomWithPrefix("tf-acc-test")
+	rTenantName := rBaseName + "-tenant"
+	rPlatformName := rBaseName + "-platform"
+	rDevName := rBaseName + "-dev"
 
 	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -367,26 +370,42 @@ func TestAccDeviceResourceWithTenantAndPlatform(t *testing.T) {
 			// tenant_id・platform_id を指定して作成する
 			{
 				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_tenant" "test" {
+  name = %q
+}
+
+resource "netbox_platform" "test" {
+  name = %q
+}
+
 resource "netbox_device" "test" {
   name           = %q
   device_type_id = 1
   role_id        = 1
   site_id        = 1
-  tenant_id      = 1
-  platform_id    = 1
+  tenant_id      = netbox_tenant.test.id
+  platform_id    = netbox_platform.test.id
   status         = "active"
 }
-`, rName),
+`, rTenantName, rPlatformName, rDevName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("netbox_device.test", "name", rName),
-					resource.TestCheckResourceAttr("netbox_device.test", "tenant_id", "1"),
-					resource.TestCheckResourceAttr("netbox_device.test", "platform_id", "1"),
+					resource.TestCheckResourceAttr("netbox_device.test", "name", rDevName),
+					resource.TestCheckResourceAttrSet("netbox_device.test", "tenant_id"),
+					resource.TestCheckResourceAttrSet("netbox_device.test", "platform_id"),
 					resource.TestCheckResourceAttrSet("netbox_device.test", "id"),
 				),
 			},
 			// tenant_id・platform_id をデタッチする
 			{
 				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_tenant" "test" {
+  name = %q
+}
+
+resource "netbox_platform" "test" {
+  name = %q
+}
+
 resource "netbox_device" "test" {
   name           = %q
   device_type_id = 1
@@ -394,7 +413,7 @@ resource "netbox_device" "test" {
   site_id        = 1
   status         = "active"
 }
-`, rName),
+`, rTenantName, rPlatformName, rDevName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckNoResourceAttr("netbox_device.test", "tenant_id"),
 					resource.TestCheckNoResourceAttr("netbox_device.test", "platform_id"),
