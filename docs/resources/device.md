@@ -38,9 +38,15 @@ resource "netbox_device" "example" {
 
 - `custom_fields` (Map of String) Custom field values as a map of field name to string value.
 - `description` (String) Description for the device.
+- `face` (String) The face of the rack unit (front or rear).
+- `location_id` (Number) The ID of the location within the site.
+- `platform_id` (Number) The ID of the platform assigned to the device.
+- `position` (Number) The rack unit position of the device.
+- `rack_id` (Number) The ID of the rack where the device is installed.
 - `serial` (String) Serial number of the device.
 - `status` (String) The status of the device (e.g., active, offline, planned, staged, failed, decommissioning).
 - `tags` (Set of Number) Set of tag IDs to assign to the device.
+- `tenant_id` (Number) The ID of the tenant assigned to the device.
 
 ### Read-Only
 

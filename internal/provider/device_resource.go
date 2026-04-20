@@ -37,6 +37,12 @@ type deviceResourceModel struct {
 	DeviceTypeId types.Int64  `tfsdk:"device_type_id"`
 	RoleId       types.Int64  `tfsdk:"role_id"`
 	SiteId       types.Int64  `tfsdk:"site_id"`
+	LocationId   types.Int64  `tfsdk:"location_id"`
+	RackId       types.Int64  `tfsdk:"rack_id"`
+	Position     types.Int64  `tfsdk:"position"`
+	Face         types.String `tfsdk:"face"`
+	TenantId     types.Int64  `tfsdk:"tenant_id"`
+	PlatformId   types.Int64  `tfsdk:"platform_id"`
 	Status       types.String `tfsdk:"status"`
 	Description  types.String `tfsdk:"description"`
 	Serial       types.String `tfsdk:"serial"`
@@ -74,6 +80,30 @@ func (r *deviceResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			"site_id": schema.Int64Attribute{
 				MarkdownDescription: "The ID of the site where the device is located.",
 				Required:            true,
+			},
+			"location_id": schema.Int64Attribute{
+				MarkdownDescription: "The ID of the location within the site.",
+				Optional:            true,
+			},
+			"rack_id": schema.Int64Attribute{
+				MarkdownDescription: "The ID of the rack where the device is installed.",
+				Optional:            true,
+			},
+			"position": schema.Int64Attribute{
+				MarkdownDescription: "The rack unit position of the device.",
+				Optional:            true,
+			},
+			"face": schema.StringAttribute{
+				MarkdownDescription: "The face of the rack unit (front or rear).",
+				Optional:            true,
+			},
+			"tenant_id": schema.Int64Attribute{
+				MarkdownDescription: "The ID of the tenant assigned to the device.",
+				Optional:            true,
+			},
+			"platform_id": schema.Int64Attribute{
+				MarkdownDescription: "The ID of the platform assigned to the device.",
+				Optional:            true,
 			},
 			"status": schema.StringAttribute{
 				MarkdownDescription: "The status of the device (e.g., active, offline, planned, staged, failed, decommissioning).",
@@ -126,6 +156,24 @@ func (r *deviceResource) Create(ctx context.Context, req resource.CreateRequest,
 		"device_type": map[string]interface{}{"id": plan.DeviceTypeId.ValueInt64()},
 		"role":        map[string]interface{}{"id": plan.RoleId.ValueInt64()},
 		"site":        map[string]interface{}{"id": plan.SiteId.ValueInt64()},
+	}
+	if !plan.LocationId.IsNull() && !plan.LocationId.IsUnknown() {
+		payload["location"] = map[string]interface{}{"id": plan.LocationId.ValueInt64()}
+	}
+	if !plan.RackId.IsNull() && !plan.RackId.IsUnknown() {
+		payload["rack"] = map[string]interface{}{"id": plan.RackId.ValueInt64()}
+	}
+	if !plan.Position.IsNull() && !plan.Position.IsUnknown() {
+		payload["position"] = plan.Position.ValueInt64()
+	}
+	if !plan.Face.IsNull() && !plan.Face.IsUnknown() {
+		payload["face"] = plan.Face.ValueString()
+	}
+	if !plan.TenantId.IsNull() && !plan.TenantId.IsUnknown() {
+		payload["tenant"] = map[string]interface{}{"id": plan.TenantId.ValueInt64()}
+	}
+	if !plan.PlatformId.IsNull() && !plan.PlatformId.IsUnknown() {
+		payload["platform"] = map[string]interface{}{"id": plan.PlatformId.ValueInt64()}
 	}
 	if !plan.Status.IsNull() && !plan.Status.IsUnknown() {
 		payload["status"] = plan.Status.ValueString()
@@ -236,6 +284,50 @@ func (r *deviceResource) Read(ctx context.Context, req resource.ReadRequest, res
 		}
 	}
 
+	if locationMap, ok := apiResponse["location"].(map[string]interface{}); ok {
+		if idFloat, ok := locationMap["id"].(float64); ok {
+			state.LocationId = types.Int64Value(int64(idFloat))
+		}
+	} else if !state.LocationId.IsNull() {
+		state.LocationId = types.Int64Null()
+	}
+
+	if rackMap, ok := apiResponse["rack"].(map[string]interface{}); ok {
+		if idFloat, ok := rackMap["id"].(float64); ok {
+			state.RackId = types.Int64Value(int64(idFloat))
+		}
+	} else if !state.RackId.IsNull() {
+		state.RackId = types.Int64Null()
+	}
+
+	if position, ok := apiResponse["position"].(float64); ok {
+		state.Position = types.Int64Value(int64(position))
+	} else if !state.Position.IsNull() {
+		state.Position = types.Int64Null()
+	}
+
+	if faceMap, ok := apiResponse["face"].(map[string]interface{}); ok {
+		if val, ok := faceMap["value"].(string); ok && !state.Face.IsNull() {
+			state.Face = types.StringValue(val)
+		}
+	}
+
+	if tenantMap, ok := apiResponse["tenant"].(map[string]interface{}); ok {
+		if idFloat, ok := tenantMap["id"].(float64); ok {
+			state.TenantId = types.Int64Value(int64(idFloat))
+		}
+	} else if !state.TenantId.IsNull() {
+		state.TenantId = types.Int64Null()
+	}
+
+	if platformMap, ok := apiResponse["platform"].(map[string]interface{}); ok {
+		if idFloat, ok := platformMap["id"].(float64); ok {
+			state.PlatformId = types.Int64Value(int64(idFloat))
+		}
+	} else if !state.PlatformId.IsNull() {
+		state.PlatformId = types.Int64Null()
+	}
+
 	if statusMap, ok := apiResponse["status"].(map[string]interface{}); ok {
 		if val, ok := statusMap["value"].(string); ok && !state.Status.IsNull() {
 			state.Status = types.StringValue(val)
@@ -299,6 +391,44 @@ func (r *deviceResource) Update(ctx context.Context, req resource.UpdateRequest,
 	}
 	if !plan.SiteId.Equal(state.SiteId) {
 		payload["site"] = map[string]interface{}{"id": plan.SiteId.ValueInt64()}
+	}
+	if !plan.LocationId.Equal(state.LocationId) {
+		if plan.LocationId.IsNull() {
+			payload["location"] = nil
+		} else {
+			payload["location"] = map[string]interface{}{"id": plan.LocationId.ValueInt64()}
+		}
+	}
+	if !plan.RackId.Equal(state.RackId) {
+		if plan.RackId.IsNull() {
+			payload["rack"] = nil
+		} else {
+			payload["rack"] = map[string]interface{}{"id": plan.RackId.ValueInt64()}
+		}
+	}
+	if !plan.Position.Equal(state.Position) {
+		if plan.Position.IsNull() {
+			payload["position"] = nil
+		} else {
+			payload["position"] = plan.Position.ValueInt64()
+		}
+	}
+	if !plan.Face.Equal(state.Face) {
+		payload["face"] = plan.Face.ValueString()
+	}
+	if !plan.TenantId.Equal(state.TenantId) {
+		if plan.TenantId.IsNull() {
+			payload["tenant"] = nil
+		} else {
+			payload["tenant"] = map[string]interface{}{"id": plan.TenantId.ValueInt64()}
+		}
+	}
+	if !plan.PlatformId.Equal(state.PlatformId) {
+		if plan.PlatformId.IsNull() {
+			payload["platform"] = nil
+		} else {
+			payload["platform"] = map[string]interface{}{"id": plan.PlatformId.ValueInt64()}
+		}
 	}
 	if !plan.Status.Equal(state.Status) {
 		payload["status"] = plan.Status.ValueString()
