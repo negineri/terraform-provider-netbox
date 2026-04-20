@@ -1,0 +1,350 @@
+// Copyright (c) negineri 2026
+// SPDX-License-Identifier: MPL-2.0
+
+package provider
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+
+	"terraform-provider-netbox/internal/client"
+
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+)
+
+var _ resource.Resource = &platformResource{}
+var _ resource.ResourceWithConfigure = &platformResource{}
+
+func NewPlatformResource() resource.Resource {
+	return &platformResource{}
+}
+
+type platformResource struct {
+	client *client.NetboxClient
+}
+
+type platformResourceModel struct {
+	Id             types.Int64  `tfsdk:"id"`
+	Name           types.String `tfsdk:"name"`
+	Slug           types.String `tfsdk:"slug"`
+	Description    types.String `tfsdk:"description"`
+	ManufacturerId types.Int64  `tfsdk:"manufacturer_id"`
+	Tags           types.Set    `tfsdk:"tags"`
+	CustomFields   types.Map    `tfsdk:"custom_fields"`
+}
+
+func (r *platformResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_platform"
+}
+
+func (r *platformResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		MarkdownDescription: "Manages a Platform in Netbox.",
+		Attributes: map[string]schema.Attribute{
+			"id": schema.Int64Attribute{
+				MarkdownDescription: "The numeric ID of the platform.",
+				Computed:            true,
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
+			},
+			"name": schema.StringAttribute{
+				MarkdownDescription: "Name of the platform.",
+				Required:            true,
+			},
+			"slug": schema.StringAttribute{
+				MarkdownDescription: "URL-friendly unique shorthand for the platform. If omitted, auto-generated from name.",
+				Optional:            true,
+				Computed:            true,
+			},
+			"description": schema.StringAttribute{
+				MarkdownDescription: "Description for the platform.",
+				Optional:            true,
+			},
+			"manufacturer_id": schema.Int64Attribute{
+				MarkdownDescription: "The ID of the manufacturer associated with this platform.",
+				Optional:            true,
+			},
+			"tags": schema.SetAttribute{
+				ElementType:         types.Int64Type,
+				MarkdownDescription: "Set of tag IDs to assign to the platform.",
+				Optional:            true,
+			},
+			"custom_fields": customFieldsSchema(),
+		},
+	}
+}
+
+func (r *platformResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		return
+	}
+
+	client, ok := req.ProviderData.(*client.NetboxClient)
+	if !ok {
+		resp.Diagnostics.AddError(
+			"Unexpected Resource Configure Type",
+			fmt.Sprintf("Expected *client.NetboxClient, got: %T.", req.ProviderData),
+		)
+		return
+	}
+
+	r.client = client
+}
+
+func (r *platformResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var plan platformResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	slug := plan.Slug.ValueString()
+	if plan.Slug.IsNull() || plan.Slug.IsUnknown() || slug == "" {
+		slug = slugify(plan.Name.ValueString())
+	}
+
+	payload := map[string]interface{}{
+		"name": plan.Name.ValueString(),
+		"slug": slug,
+	}
+	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
+		payload["description"] = plan.Description.ValueString()
+	}
+	if !plan.ManufacturerId.IsNull() && !plan.ManufacturerId.IsUnknown() {
+		payload["manufacturer"] = map[string]interface{}{"id": plan.ManufacturerId.ValueInt64()}
+	}
+	if !plan.Tags.IsNull() && !plan.Tags.IsUnknown() {
+		var tagIDs []int64
+		resp.Diagnostics.Append(plan.Tags.ElementsAs(ctx, &tagIDs, false)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		tags := make([]map[string]interface{}, len(tagIDs))
+		for i, id := range tagIDs {
+			tags[i] = map[string]interface{}{"id": id}
+		}
+		payload["tags"] = tags
+	}
+	if cf := customFieldsToPayload(ctx, r.client, plan.CustomFields, &resp.Diagnostics); cf != nil {
+		payload["custom_fields"] = cf
+	}
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	bodyBytes, err := json.Marshal(payload)
+	if err != nil {
+		resp.Diagnostics.AddError("Error marshaling payload", err.Error())
+		return
+	}
+
+	bodyStr, err := r.client.Post(ctx, "api/dcim/platforms/", bytes.NewReader(bodyBytes))
+	if err != nil {
+		resp.Diagnostics.AddError("Error creating Platform", err.Error())
+		return
+	}
+
+	var apiResponse map[string]interface{}
+	if err := json.Unmarshal([]byte(*bodyStr), &apiResponse); err != nil {
+		resp.Diagnostics.AddError("Error parsing create response", err.Error())
+		return
+	}
+
+	idFloat, ok := apiResponse["id"].(float64)
+	if !ok {
+		resp.Diagnostics.AddError("Error parsing create response", "Could not find 'id' in response")
+		return
+	}
+	plan.Id = types.Int64Value(int64(idFloat))
+
+	if slugVal, ok := apiResponse["slug"].(string); ok {
+		plan.Slug = types.StringValue(slugVal)
+	}
+
+	if cfRaw, ok := apiResponse["custom_fields"]; ok {
+		cf, diags := customFieldsFromAPI(cfRaw)
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			plan.CustomFields = cf
+		}
+	} else {
+		plan.CustomFields = types.MapValueMust(types.StringType, map[string]attr.Value{})
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
+
+func (r *platformResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var state platformResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	path := fmt.Sprintf("api/dcim/platforms/%d/", state.Id.ValueInt64())
+	bodyStr, err := r.client.Get(ctx, path)
+	if err != nil {
+		tflog.Warn(ctx, "Could not read platform, assuming it was deleted", map[string]interface{}{"error": err.Error()})
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	var apiResponse map[string]interface{}
+	if err := json.Unmarshal([]byte(*bodyStr), &apiResponse); err != nil {
+		resp.Diagnostics.AddError("Error parsing read response", err.Error())
+		return
+	}
+
+	if name, ok := apiResponse["name"].(string); ok {
+		state.Name = types.StringValue(name)
+	}
+	if slugVal, ok := apiResponse["slug"].(string); ok {
+		state.Slug = types.StringValue(slugVal)
+	}
+	if desc, ok := apiResponse["description"].(string); ok && !state.Description.IsNull() {
+		state.Description = types.StringValue(desc)
+	}
+
+	if !state.ManufacturerId.IsNull() {
+		if mfgMap, ok := apiResponse["manufacturer"].(map[string]interface{}); ok {
+			if idFloat, ok := mfgMap["id"].(float64); ok {
+				state.ManufacturerId = types.Int64Value(int64(idFloat))
+			}
+		} else {
+			state.ManufacturerId = types.Int64Null()
+		}
+	}
+
+	if !state.Tags.IsNull() {
+		if tagsRaw, ok := apiResponse["tags"].([]interface{}); ok {
+			tagVals := make([]attr.Value, 0, len(tagsRaw))
+			for _, t := range tagsRaw {
+				if tagMap, ok := t.(map[string]interface{}); ok {
+					if idFloat, ok := tagMap["id"].(float64); ok {
+						tagVals = append(tagVals, types.Int64Value(int64(idFloat)))
+					}
+				}
+			}
+			setVal, diags := types.SetValue(types.Int64Type, tagVals)
+			resp.Diagnostics.Append(diags...)
+			if !resp.Diagnostics.HasError() {
+				state.Tags = setVal
+			}
+		}
+	}
+
+	if cfRaw, ok := apiResponse["custom_fields"]; ok {
+		cf, diags := customFieldsFromAPI(cfRaw)
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			state.CustomFields = cf
+		}
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+}
+
+func (r *platformResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var plan, state platformResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	payload := map[string]interface{}{}
+	if !plan.Name.Equal(state.Name) {
+		payload["name"] = plan.Name.ValueString()
+		if plan.Slug.IsNull() || plan.Slug.IsUnknown() {
+			payload["slug"] = slugify(plan.Name.ValueString())
+		}
+	}
+	if !plan.Slug.Equal(state.Slug) && !plan.Slug.IsNull() && !plan.Slug.IsUnknown() {
+		payload["slug"] = plan.Slug.ValueString()
+	}
+	if !plan.Description.Equal(state.Description) {
+		payload["description"] = plan.Description.ValueString()
+	}
+	if !plan.ManufacturerId.Equal(state.ManufacturerId) {
+		if !plan.ManufacturerId.IsNull() && !plan.ManufacturerId.IsUnknown() {
+			payload["manufacturer"] = map[string]interface{}{"id": plan.ManufacturerId.ValueInt64()}
+		} else {
+			payload["manufacturer"] = nil
+		}
+	}
+	if !plan.Tags.Equal(state.Tags) {
+		if !plan.Tags.IsNull() && !plan.Tags.IsUnknown() {
+			var tagIDs []int64
+			resp.Diagnostics.Append(plan.Tags.ElementsAs(ctx, &tagIDs, false)...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+			tags := make([]map[string]interface{}, len(tagIDs))
+			for i, id := range tagIDs {
+				tags[i] = map[string]interface{}{"id": id}
+			}
+			payload["tags"] = tags
+		} else {
+			payload["tags"] = []map[string]interface{}{}
+		}
+	}
+	if !plan.CustomFields.Equal(state.CustomFields) {
+		if cf := customFieldsToPayload(ctx, r.client, plan.CustomFields, &resp.Diagnostics); cf != nil {
+			payload["custom_fields"] = cf
+		}
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	if len(payload) > 0 {
+		bodyBytes, err := json.Marshal(payload)
+		if err != nil {
+			resp.Diagnostics.AddError("Error marshaling payload", err.Error())
+			return
+		}
+
+		path := fmt.Sprintf("api/dcim/platforms/%d/", state.Id.ValueInt64())
+		bodyStr, err := r.client.Patch(ctx, path, bytes.NewReader(bodyBytes))
+		if err != nil {
+			resp.Diagnostics.AddError("Error updating Platform", err.Error())
+			return
+		}
+
+		var apiResponse map[string]interface{}
+		if err := json.Unmarshal([]byte(*bodyStr), &apiResponse); err != nil {
+			resp.Diagnostics.AddError("Error parsing update response", err.Error())
+			return
+		}
+		if slugVal, ok := apiResponse["slug"].(string); ok {
+			plan.Slug = types.StringValue(slugVal)
+		}
+	} else if plan.Slug.IsNull() || plan.Slug.IsUnknown() {
+		plan.Slug = state.Slug
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
+
+func (r *platformResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var state platformResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	path := fmt.Sprintf("api/dcim/platforms/%d/", state.Id.ValueInt64())
+	err := r.client.Delete(ctx, path)
+	if err != nil {
+		tflog.Warn(ctx, "Delete failed, assuming already deleted", map[string]interface{}{"error": err.Error()})
+	}
+}
