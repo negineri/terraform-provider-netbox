@@ -36,6 +36,7 @@ type deviceDataSourceModel struct {
 	Status        types.String `tfsdk:"status"`
 	Description   types.String `tfsdk:"description"`
 	Serial        types.String `tfsdk:"serial"`
+	AssetTag      types.String `tfsdk:"asset_tag"`
 	PrimaryIPv4Id types.Int64  `tfsdk:"primary_ipv4_id"`
 	PrimaryIPv4   types.String `tfsdk:"primary_ipv4"`
 	PrimaryIPv6Id types.Int64  `tfsdk:"primary_ipv6_id"`
@@ -80,6 +81,10 @@ func (d *deviceDataSource) Schema(_ context.Context, _ datasource.SchemaRequest,
 			},
 			"serial": schema.StringAttribute{
 				MarkdownDescription: "Serial number of the device.",
+				Computed:            true,
+			},
+			"asset_tag": schema.StringAttribute{
+				MarkdownDescription: "A unique tag used to identify the device.",
 				Computed:            true,
 			},
 			"primary_ipv4_id": schema.Int64Attribute{
@@ -168,6 +173,11 @@ func (d *deviceDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 	}
 	if serial, ok := apiResponse["serial"].(string); ok {
 		state.Serial = types.StringValue(serial)
+	}
+	if assetTag, ok := apiResponse["asset_tag"].(string); ok {
+		state.AssetTag = types.StringValue(assetTag)
+	} else {
+		state.AssetTag = types.StringNull()
 	}
 	if ipv4Map, ok := apiResponse["primary_ip4"].(map[string]any); ok {
 		if idFloat, ok := ipv4Map["id"].(float64); ok {

@@ -42,6 +42,7 @@ type devicesDataSourceModel struct {
 type deviceModel struct {
 	Id            types.Int64  `tfsdk:"id"`
 	Name          types.String `tfsdk:"name"`
+	AssetTag      types.String `tfsdk:"asset_tag"`
 	PrimaryIPv4Id types.Int64  `tfsdk:"primary_ipv4_id"`
 	PrimaryIPv4   types.String `tfsdk:"primary_ipv4"`
 	PrimaryIPv6Id types.Int64  `tfsdk:"primary_ipv6_id"`
@@ -96,6 +97,10 @@ func (d *devicesDataSource) Schema(_ context.Context, _ datasource.SchemaRequest
 						},
 						"name": schema.StringAttribute{
 							MarkdownDescription: "The name of the device.",
+							Computed:            true,
+						},
+						"asset_tag": schema.StringAttribute{
+							MarkdownDescription: "A unique tag used to identify the device.",
 							Computed:            true,
 						},
 						"primary_ipv4_id": schema.Int64Attribute{
@@ -174,6 +179,7 @@ func (d *devicesDataSource) Read(ctx context.Context, req datasource.ReadRequest
 	type ApiDevice struct {
 		ID          int64     `json:"id"`
 		Name        string    `json:"name"`
+		AssetTag    *string   `json:"asset_tag"`
 		PrimaryIPv4 *ApiIPRef `json:"primary_ip4"`
 		PrimaryIPv6 *ApiIPRef `json:"primary_ip6"`
 	}
@@ -193,6 +199,11 @@ func (d *devicesDataSource) Read(ctx context.Context, req datasource.ReadRequest
 		deviceState := deviceModel{
 			Id:   types.Int64Value(result.ID),
 			Name: types.StringValue(result.Name),
+		}
+		if result.AssetTag != nil {
+			deviceState.AssetTag = types.StringValue(*result.AssetTag)
+		} else {
+			deviceState.AssetTag = types.StringNull()
 		}
 		if result.PrimaryIPv4 != nil {
 			deviceState.PrimaryIPv4Id = types.Int64Value(result.PrimaryIPv4.ID)
