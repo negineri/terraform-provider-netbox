@@ -46,6 +46,7 @@ type deviceResourceModel struct {
 	Status       types.String `tfsdk:"status"`
 	Description  types.String `tfsdk:"description"`
 	Serial       types.String `tfsdk:"serial"`
+	AssetTag     types.String `tfsdk:"asset_tag"`
 	Tags         types.Set    `tfsdk:"tags"`
 	CustomFields types.Map    `tfsdk:"custom_fields"`
 }
@@ -117,6 +118,10 @@ func (r *deviceResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				MarkdownDescription: "Serial number of the device.",
 				Optional:            true,
 			},
+			"asset_tag": schema.StringAttribute{
+				MarkdownDescription: "A unique tag used to identify the device.",
+				Optional:            true,
+			},
 			"tags": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				MarkdownDescription: "Set of tag IDs to assign to the device.",
@@ -183,6 +188,9 @@ func (r *deviceResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 	if !plan.Serial.IsNull() && !plan.Serial.IsUnknown() {
 		payload["serial"] = plan.Serial.ValueString()
+	}
+	if !plan.AssetTag.IsNull() && !plan.AssetTag.IsUnknown() {
+		payload["asset_tag"] = plan.AssetTag.ValueString()
 	}
 	if !plan.Tags.IsNull() && !plan.Tags.IsUnknown() {
 		var tagIDs []int64
@@ -342,6 +350,10 @@ func (r *deviceResource) Read(ctx context.Context, req resource.ReadRequest, res
 		state.Serial = types.StringValue(serial)
 	}
 
+	if assetTag, ok := apiResponse["asset_tag"].(string); ok && !state.AssetTag.IsNull() {
+		state.AssetTag = types.StringValue(assetTag)
+	}
+
 	if !state.Tags.IsNull() {
 		if tagsRaw, ok := apiResponse["tags"].([]interface{}); ok {
 			tagVals := make([]attr.Value, 0, len(tagsRaw))
@@ -438,6 +450,13 @@ func (r *deviceResource) Update(ctx context.Context, req resource.UpdateRequest,
 	}
 	if !plan.Serial.Equal(state.Serial) {
 		payload["serial"] = plan.Serial.ValueString()
+	}
+	if !plan.AssetTag.Equal(state.AssetTag) {
+		if plan.AssetTag.IsNull() {
+			payload["asset_tag"] = nil
+		} else {
+			payload["asset_tag"] = plan.AssetTag.ValueString()
+		}
 	}
 	if !plan.Tags.Equal(state.Tags) {
 		if !plan.Tags.IsNull() && !plan.Tags.IsUnknown() {

@@ -36,6 +36,7 @@ output "device_status" {
 
 ### Read-Only
 
+- `asset_tag` (String) A unique tag used to identify the device.
 - `description` (String) Description for the device.
 - `device_type_id` (Number) The ID of the device type.
 - `name` (String) The name of the device.

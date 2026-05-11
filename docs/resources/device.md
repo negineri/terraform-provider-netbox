@@ -36,6 +36,7 @@ resource "netbox_device" "example" {
 
 ### Optional
 
+- `asset_tag` (String) A unique tag used to identify the device.
 - `custom_fields` (Map of String) Custom field values as a map of field name to string value.
 - `description` (String) Description for the device.
 - `face` (String) The face of the rack unit (front or rear).

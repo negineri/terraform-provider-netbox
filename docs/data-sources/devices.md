@@ -49,6 +49,7 @@ output "device_count" {
 
 Read-Only:
 
+- `asset_tag` (String) A unique tag used to identify the device.
 - `id` (Number) The ID of the device.
 - `name` (String) The name of the device.
 - `primary_ipv4` (String) The primary IPv4 address in CIDR notation.

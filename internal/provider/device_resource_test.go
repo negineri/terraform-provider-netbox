@@ -424,6 +424,67 @@ resource "netbox_device" "test" {
 	})
 }
 
+// TestAccDeviceResourceWithAssetTag は asset_tag フィールドの acceptance test です。
+func TestAccDeviceResourceWithAssetTag(t *testing.T) {
+	rName := acctest.RandomWithPrefix("tf-acc-test-device-asset")
+
+	resource.ParallelTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// asset_tag を指定して作成する
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_device" "test" {
+  name           = %q
+  device_type_id = 1
+  role_id        = 1
+  site_id        = 1
+  status         = "active"
+  asset_tag      = "ASSET-001"
+}
+`, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_device.test", "name", rName),
+					resource.TestCheckResourceAttr("netbox_device.test", "asset_tag", "ASSET-001"),
+					resource.TestCheckResourceAttrSet("netbox_device.test", "id"),
+				),
+			},
+			// asset_tag を更新する
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_device" "test" {
+  name           = %q
+  device_type_id = 1
+  role_id        = 1
+  site_id        = 1
+  status         = "active"
+  asset_tag      = "ASSET-002"
+}
+`, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_device.test", "asset_tag", "ASSET-002"),
+				),
+			},
+			// asset_tag を削除する
+			{
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_device" "test" {
+  name           = %q
+  device_type_id = 1
+  role_id        = 1
+  site_id        = 1
+  status         = "active"
+}
+`, rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckNoResourceAttr("netbox_device.test", "asset_tag"),
+				),
+			},
+			// Delete testing automatically occurs in TestCase
+		},
+	})
+}
+
 // TestAccDeviceResourceWithTags は tags 属性の acceptance test です。
 // 実行前に NETBOX_SERVER_URL / NETBOX_KEY_V2 / NETBOX_TOKEN_V2 環境変数と、
 // NetBox 上に device_type_id=1, role_id=1, site_id=1, tag_id=37 が存在している必要があります。
