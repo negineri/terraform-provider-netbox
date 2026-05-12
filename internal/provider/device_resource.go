@@ -294,7 +294,10 @@ func (r *deviceResource) Read(ctx context.Context, req resource.ReadRequest, res
 
 	if locationMap, ok := apiResponse["location"].(map[string]interface{}); ok {
 		if idFloat, ok := locationMap["id"].(float64); ok {
-			state.LocationId = types.Int64Value(int64(idFloat))
+			// rack 指定時に NetBox が自動設定した location を無視して null を維持する
+			if !state.LocationId.IsNull() || state.RackId.IsNull() {
+				state.LocationId = types.Int64Value(int64(idFloat))
+			}
 		}
 	} else if !state.LocationId.IsNull() {
 		state.LocationId = types.Int64Null()
