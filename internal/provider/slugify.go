@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	reNonAlphanumeric = regexp.MustCompile(`[^a-z0-9]+`)
+	reNonAlphanumeric = regexp.MustCompile(`[^a-z0-9_]+`)
 	reLeadingTrailing = regexp.MustCompile(`^-+|-+$`)
 )
 
