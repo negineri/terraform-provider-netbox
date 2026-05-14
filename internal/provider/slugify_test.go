@@ -93,6 +93,11 @@ func TestSlugify(t *testing.T) {
 			input: "_test_",
 			want:  "_test_",
 		},
+		{
+			name:  "leading and trailing hyphens",
+			input: "-   -  --test- -   -",
+			want:  "-test-",
+		},
 	}
 
 	for _, tc := range tests {
