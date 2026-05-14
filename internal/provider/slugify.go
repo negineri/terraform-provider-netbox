@@ -14,19 +14,35 @@ import (
 )
 
 var (
-	reNonAlphanumeric = regexp.MustCompile(`[^a-z0-9_]+`)
-	reLeadingTrailing = regexp.MustCompile(`^-+|-+$`)
+	reNonSlugChar       = regexp.MustCompile(`[^a-z0-9_-]+`)
+	reConsecutiveHyphen = regexp.MustCompile(`-{2,}`)
+	reLeadingHyphen     = regexp.MustCompile(`^-+`)
+	reTrailingHyphen    = regexp.MustCompile(`-+$`)
 )
 
 // slugify converts a name string into a URL-friendly slug.
 // e.g. "Example Site" -> "example-site".
 func slugify(name string) string {
-	// Normalize unicode characters (decompose accented chars)
+	name = strings.TrimSpace(name)
+
+	hasLeadingHyphen := strings.HasPrefix(name, "-")
+	hasTrailingHyphen := strings.HasSuffix(name, "-")
+
 	t := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
 	normalized, _, _ := transform.String(t, name)
 
 	lower := strings.ToLower(normalized)
-	slug := reNonAlphanumeric.ReplaceAllString(lower, "-")
-	slug = reLeadingTrailing.ReplaceAllString(slug, "")
+	slug := reNonSlugChar.ReplaceAllString(lower, "-")
+	slug = reConsecutiveHyphen.ReplaceAllString(slug, "-")
+	slug = reLeadingHyphen.ReplaceAllString(slug, "")
+	slug = reTrailingHyphen.ReplaceAllString(slug, "")
+
+	if hasLeadingHyphen {
+		slug = "-" + slug
+	}
+	if hasTrailingHyphen {
+		slug = slug + "-"
+	}
+
 	return slug
 }
