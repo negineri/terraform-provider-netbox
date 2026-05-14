@@ -73,6 +73,26 @@ func TestSlugify(t *testing.T) {
 			input: "Tokyo-DC01",
 			want:  "tokyo-dc01",
 		},
+		{
+			name:  "single underscore",
+			input: "hello_world",
+			want:  "hello_world",
+		},
+		{
+			name:  "multiple underscores",
+			input: "foo__bar",
+			want:  "foo__bar",
+		},
+		{
+			name:  "mixed hyphen and underscore",
+			input: "test-_-value",
+			want:  "test-_-value",
+		},
+		{
+			name:  "leading and trailing underscores",
+			input: "_test_",
+			want:  "_test_",
+		},
 	}
 
 	for _, tc := range tests {
