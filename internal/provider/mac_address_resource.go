@@ -32,12 +32,10 @@ type macAddressResource struct {
 }
 
 type macAddressResourceModel struct {
-	Id                 types.Int64  `tfsdk:"id"`
-	MacAddress         types.String `tfsdk:"mac_address"`
-	AssignedObjectType types.String `tfsdk:"assigned_object_type"`
-	AssignedObjectId   types.Int64  `tfsdk:"assigned_object_id"`
-	Description        types.String `tfsdk:"description"`
-	Comments           types.String `tfsdk:"comments"`
+	Id          types.Int64  `tfsdk:"id"`
+	MacAddress  types.String `tfsdk:"mac_address"`
+	Description types.String `tfsdk:"description"`
+	Comments    types.String `tfsdk:"comments"`
 }
 
 func (r *macAddressResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -46,7 +44,7 @@ func (r *macAddressResource) Metadata(_ context.Context, req resource.MetadataRe
 
 func (r *macAddressResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Manages a MAC address within Netbox.",
+		MarkdownDescription: "Manages a MAC address within Netbox. Interface assignment is managed via primary_mac_address_id on the interface resource.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				MarkdownDescription: "The numeric ID of the MAC address.",
@@ -61,14 +59,6 @@ func (r *macAddressResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
-			},
-			"assigned_object_type": schema.StringAttribute{
-				MarkdownDescription: "The type of the object this MAC address is assigned to (e.g., dcim.interface, virtualization.vminterface).",
-				Optional:            true,
-			},
-			"assigned_object_id": schema.Int64Attribute{
-				MarkdownDescription: "The ID of the object this MAC address is assigned to.",
-				Optional:            true,
 			},
 			"description": schema.StringAttribute{
 				MarkdownDescription: "Description for the MAC address.",
@@ -108,12 +98,6 @@ func (r *macAddressResource) Create(ctx context.Context, req resource.CreateRequ
 
 	payload := map[string]interface{}{
 		"mac_address": plan.MacAddress.ValueString(),
-	}
-	if !plan.AssignedObjectId.IsNull() && !plan.AssignedObjectId.IsUnknown() {
-		payload["assigned_object_id"] = plan.AssignedObjectId.ValueInt64()
-		if !plan.AssignedObjectType.IsNull() && !plan.AssignedObjectType.IsUnknown() {
-			payload["assigned_object_type"] = plan.AssignedObjectType.ValueString()
-		}
 	}
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		payload["description"] = plan.Description.ValueString()
@@ -178,18 +162,9 @@ func (r *macAddressResource) Read(ctx context.Context, req resource.ReadRequest,
 	if macAddr, ok := apiResponse["mac_address"].(string); ok {
 		state.MacAddress = types.StringValue(macAddr)
 	}
-
-	if objType, ok := apiResponse["assigned_object_type"].(string); ok && objType != "" {
-		state.AssignedObjectType = types.StringValue(objType)
-		if objIdFloat, ok := apiResponse["assigned_object_id"].(float64); ok {
-			state.AssignedObjectId = types.Int64Value(int64(objIdFloat))
-		}
-	}
-
 	if desc, ok := apiResponse["description"].(string); ok && !state.Description.IsNull() {
 		state.Description = types.StringValue(desc)
 	}
-
 	if comments, ok := apiResponse["comments"].(string); ok && !state.Comments.IsNull() {
 		state.Comments = types.StringValue(comments)
 	}
@@ -206,17 +181,6 @@ func (r *macAddressResource) Update(ctx context.Context, req resource.UpdateRequ
 	}
 
 	payload := map[string]interface{}{}
-	if !plan.AssignedObjectId.Equal(state.AssignedObjectId) || !plan.AssignedObjectType.Equal(state.AssignedObjectType) {
-		if plan.AssignedObjectId.IsNull() {
-			payload["assigned_object_id"] = nil
-			payload["assigned_object_type"] = nil
-		} else {
-			payload["assigned_object_id"] = plan.AssignedObjectId.ValueInt64()
-			if !plan.AssignedObjectType.IsNull() && !plan.AssignedObjectType.IsUnknown() {
-				payload["assigned_object_type"] = plan.AssignedObjectType.ValueString()
-			}
-		}
-	}
 	if !plan.Description.Equal(state.Description) {
 		payload["description"] = plan.Description.ValueString()
 	}

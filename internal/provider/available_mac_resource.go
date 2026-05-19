@@ -40,14 +40,12 @@ type availableMacResource struct {
 }
 
 type availableMacResourceModel struct {
-	Prefix             types.String `tfsdk:"prefix"`
-	MaxAttempts        types.Int64  `tfsdk:"max_attempts"`
-	Id                 types.Int64  `tfsdk:"id"`
-	MacAddress         types.String `tfsdk:"mac_address"`
-	AssignedObjectType types.String `tfsdk:"assigned_object_type"`
-	AssignedObjectId   types.Int64  `tfsdk:"assigned_object_id"`
-	Description        types.String `tfsdk:"description"`
-	Comments           types.String `tfsdk:"comments"`
+	Prefix      types.String `tfsdk:"prefix"`
+	MaxAttempts types.Int64  `tfsdk:"max_attempts"`
+	Id          types.Int64  `tfsdk:"id"`
+	MacAddress  types.String `tfsdk:"mac_address"`
+	Description types.String `tfsdk:"description"`
+	Comments    types.String `tfsdk:"comments"`
 }
 
 func (r *availableMacResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -87,14 +85,6 @@ func (r *availableMacResource) Schema(_ context.Context, _ resource.SchemaReques
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
-			},
-			"assigned_object_type": schema.StringAttribute{
-				MarkdownDescription: "The type of the object this MAC address is assigned to (e.g., dcim.interface, virtualization.vminterface).",
-				Optional:            true,
-			},
-			"assigned_object_id": schema.Int64Attribute{
-				MarkdownDescription: "The ID of the object this MAC address is assigned to.",
-				Optional:            true,
 			},
 			"description": schema.StringAttribute{
 				MarkdownDescription: "Description for the MAC address.",
@@ -184,12 +174,6 @@ func (r *availableMacResource) Create(ctx context.Context, req resource.CreateRe
 	maxAttempts := plan.MaxAttempts.ValueInt64()
 
 	basePayload := map[string]interface{}{}
-	if !plan.AssignedObjectId.IsNull() && !plan.AssignedObjectId.IsUnknown() {
-		basePayload["assigned_object_id"] = plan.AssignedObjectId.ValueInt64()
-		if !plan.AssignedObjectType.IsNull() && !plan.AssignedObjectType.IsUnknown() {
-			basePayload["assigned_object_type"] = plan.AssignedObjectType.ValueString()
-		}
-	}
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		basePayload["description"] = plan.Description.ValueString()
 	}
@@ -301,13 +285,6 @@ func (r *availableMacResource) Read(ctx context.Context, req resource.ReadReques
 		state.MacAddress = types.StringValue(macAddr)
 	}
 
-	if objType, ok := apiResponse["assigned_object_type"].(string); ok && objType != "" {
-		state.AssignedObjectType = types.StringValue(objType)
-		if objIdFloat, ok := apiResponse["assigned_object_id"].(float64); ok {
-			state.AssignedObjectId = types.Int64Value(int64(objIdFloat))
-		}
-	}
-
 	if desc, ok := apiResponse["description"].(string); ok && !state.Description.IsNull() {
 		state.Description = types.StringValue(desc)
 	}
@@ -328,17 +305,6 @@ func (r *availableMacResource) Update(ctx context.Context, req resource.UpdateRe
 	}
 
 	payload := map[string]interface{}{}
-	if !plan.AssignedObjectId.Equal(state.AssignedObjectId) || !plan.AssignedObjectType.Equal(state.AssignedObjectType) {
-		if plan.AssignedObjectId.IsNull() {
-			payload["assigned_object_id"] = nil
-			payload["assigned_object_type"] = nil
-		} else {
-			payload["assigned_object_id"] = plan.AssignedObjectId.ValueInt64()
-			if !plan.AssignedObjectType.IsNull() && !plan.AssignedObjectType.IsUnknown() {
-				payload["assigned_object_type"] = plan.AssignedObjectType.ValueString()
-			}
-		}
-	}
 	if !plan.Description.Equal(state.Description) {
 		payload["description"] = plan.Description.ValueString()
 	}

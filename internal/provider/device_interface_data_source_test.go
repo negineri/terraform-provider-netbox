@@ -29,9 +29,6 @@ resource "netbox_device" "test" {
 
 resource "netbox_mac_address" "eth0_mac" {
   mac_address = "AA:BB:CC:DD:EE:01"
-  lifecycle {
-    ignore_changes = [assigned_object_type, assigned_object_id]
-  }
 }
 
 resource "netbox_device_interface" "test" {
@@ -77,16 +74,10 @@ resource "netbox_device" "test" {
 
 resource "netbox_mac_address" "eth0_mac" {
   mac_address = "AA:BB:CC:DD:EE:10"
-  lifecycle {
-    ignore_changes = [assigned_object_type, assigned_object_id]
-  }
 }
 
 resource "netbox_mac_address" "eth1_mac" {
   mac_address = "AA:BB:CC:DD:EE:11"
-  lifecycle {
-    ignore_changes = [assigned_object_type, assigned_object_id]
-  }
 }
 
 resource "netbox_device_interface" "eth0" {
