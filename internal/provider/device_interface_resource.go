@@ -137,6 +137,10 @@ func (r *deviceInterfaceResource) Create(ctx context.Context, req resource.Creat
 		payload["mac_address"] = plan.MacAddress.ValueString()
 	}
 	if !plan.PrimaryMacAddressId.IsNull() && !plan.PrimaryMacAddressId.IsUnknown() {
+		if err := checkMacAddressAvailable(ctx, r.client, plan.PrimaryMacAddressId.ValueInt64(), 0); err != nil {
+			resp.Diagnostics.AddError("MAC address already assigned", err.Error())
+			return
+		}
 		payload["primary_mac_address"] = plan.PrimaryMacAddressId.ValueInt64()
 	}
 	if !plan.Mtu.IsNull() && !plan.Mtu.IsUnknown() {
@@ -272,6 +276,11 @@ func (r *deviceInterfaceResource) Update(ctx context.Context, req resource.Updat
 		if plan.PrimaryMacAddressId.IsNull() {
 			payload["primary_mac_address"] = nil
 		} else {
+			currentIfId := state.Id.ValueInt64()
+			if err := checkMacAddressAvailable(ctx, r.client, plan.PrimaryMacAddressId.ValueInt64(), currentIfId); err != nil {
+				resp.Diagnostics.AddError("MAC address already assigned", err.Error())
+				return
+			}
 			payload["primary_mac_address"] = plan.PrimaryMacAddressId.ValueInt64()
 		}
 	}

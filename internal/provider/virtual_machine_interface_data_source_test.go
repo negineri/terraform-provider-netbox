@@ -27,9 +27,6 @@ resource "netbox_virtual_machine" "test" {
 
 resource "netbox_mac_address" "eth0_mac" {
   mac_address = "BB:CC:DD:EE:FF:01"
-  lifecycle {
-    ignore_changes = [assigned_object_type, assigned_object_id]
-  }
 }
 
 resource "netbox_virtual_machine_interface" "test" {
@@ -71,16 +68,10 @@ resource "netbox_virtual_machine" "test" {
 
 resource "netbox_mac_address" "eth0_mac" {
   mac_address = "BB:CC:DD:EE:FF:10"
-  lifecycle {
-    ignore_changes = [assigned_object_type, assigned_object_id]
-  }
 }
 
 resource "netbox_mac_address" "eth1_mac" {
   mac_address = "BB:CC:DD:EE:FF:11"
-  lifecycle {
-    ignore_changes = [assigned_object_type, assigned_object_id]
-  }
 }
 
 resource "netbox_virtual_machine_interface" "eth0" {
