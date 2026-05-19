@@ -276,6 +276,8 @@ func (p *netboxProvider) DataSources(_ context.Context) []func() datasource.Data
 		NewTenantDataSource,
 		NewPlatformsDataSource,
 		NewPlatformDataSource,
+		NewMacAddressesDataSource,
+		NewMacAddressDataSource,
 	}
 }
 
@@ -306,6 +308,8 @@ func (p *netboxProvider) Resources(_ context.Context) []func() resource.Resource
 		NewManufacturerResource,
 		NewTenantResource,
 		NewPlatformResource,
+		NewMacAddressResource,
+		NewAvailableMacResource,
 	}
 }
 
