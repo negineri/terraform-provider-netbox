@@ -22,6 +22,7 @@ func TestNewNetboxClient(t *testing.T) {
 	c := NewNetboxClient("http://localhost:8080", "mykey", "mytoken")
 	if c == nil {
 		t.Fatal("expected non-nil client")
+		return
 	}
 	if c.baseURL != "http://localhost:8080" {
 		t.Errorf("unexpected baseURL: %s", c.baseURL)
@@ -35,6 +36,7 @@ func TestNewNetboxClientV1(t *testing.T) {
 	c := NewNetboxClientV1("http://localhost:8080", "myv1token")
 	if c == nil {
 		t.Fatal("expected non-nil client")
+		return
 	}
 	if c.baseURL != "http://localhost:8080" {
 		t.Errorf("unexpected baseURL: %s", c.baseURL)
@@ -86,6 +88,7 @@ func TestGet(t *testing.T) {
 	}
 	if body == nil {
 		t.Fatal("expected non-nil body")
+		return
 	}
 	var result map[string]string
 	if err := json.Unmarshal([]byte(*body), &result); err != nil {
@@ -123,6 +126,7 @@ func TestPost(t *testing.T) {
 	}
 	if body == nil {
 		t.Fatal("expected non-nil body")
+		return
 	}
 	var result map[string]interface{}
 	if err := json.Unmarshal([]byte(*body), &result); err != nil {
