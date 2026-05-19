@@ -21,8 +21,6 @@ Generates and registers an available MAC address with the given prefix. Retries 
 
 ### Optional
 
-- `assigned_object_id` (Number) The ID of the object this MAC address is assigned to.
-- `assigned_object_type` (String) The type of the object this MAC address is assigned to (e.g., dcim.interface, virtualization.vminterface).
 - `comments` (String) Comments for the MAC address.
 - `description` (String) Description for the MAC address.
 - `max_attempts` (Number) Maximum number of generation attempts before giving up on duplicate collision. Defaults to 10.

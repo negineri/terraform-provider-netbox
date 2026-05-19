@@ -37,6 +37,7 @@ resource "netbox_device_interface" "example" {
 - `enabled` (Boolean) Whether the interface is enabled.
 - `mac_address` (String) The MAC address of the interface.
 - `mtu` (Number) The MTU of the interface.
+- `primary_mac_address_id` (Number) The ID of the netbox_mac_address to set as primary MAC address.
 
 ### Read-Only
 

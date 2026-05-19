@@ -3,12 +3,12 @@
 page_title: "netbox_mac_address Resource - netbox"
 subcategory: ""
 description: |-
-  Manages a MAC address within Netbox.
+  Manages a MAC address within Netbox. Interface assignment is managed via primary_mac_address_id on the interface resource.
 ---
 
 # netbox_mac_address (Resource)
 
-Manages a MAC address within Netbox.
+Manages a MAC address within Netbox. Interface assignment is managed via primary_mac_address_id on the interface resource.
 
 
 
@@ -21,8 +21,6 @@ Manages a MAC address within Netbox.
 
 ### Optional
 
-- `assigned_object_id` (Number) The ID of the object this MAC address is assigned to.
-- `assigned_object_type` (String) The type of the object this MAC address is assigned to (e.g., dcim.interface, virtualization.vminterface).
 - `comments` (String) Comments for the MAC address.
 - `description` (String) Description for the MAC address.
 
