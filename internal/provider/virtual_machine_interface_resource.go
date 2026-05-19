@@ -32,13 +32,14 @@ type virtualMachineInterfaceResource struct {
 }
 
 type virtualMachineInterfaceResourceModel struct {
-	Id               types.Int64  `tfsdk:"id"`
-	VirtualMachineId types.Int64  `tfsdk:"virtual_machine_id"`
-	Name             types.String `tfsdk:"name"`
-	Enabled          types.Bool   `tfsdk:"enabled"`
-	MacAddress       types.String `tfsdk:"mac_address"`
-	Mtu              types.Int64  `tfsdk:"mtu"`
-	Description      types.String `tfsdk:"description"`
+	Id                  types.Int64  `tfsdk:"id"`
+	VirtualMachineId    types.Int64  `tfsdk:"virtual_machine_id"`
+	Name                types.String `tfsdk:"name"`
+	Enabled             types.Bool   `tfsdk:"enabled"`
+	MacAddress          types.String `tfsdk:"mac_address"`
+	PrimaryMacAddressId types.Int64  `tfsdk:"primary_mac_address_id"`
+	Mtu                 types.Int64  `tfsdk:"mtu"`
+	Description         types.String `tfsdk:"description"`
 }
 
 func (r *virtualMachineInterfaceResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -77,6 +78,10 @@ func (r *virtualMachineInterfaceResource) Schema(_ context.Context, _ resource.S
 			},
 			"mac_address": schema.StringAttribute{
 				MarkdownDescription: "The MAC address of the interface.",
+				Optional:            true,
+			},
+			"primary_mac_address_id": schema.Int64Attribute{
+				MarkdownDescription: "The ID of the netbox_mac_address to set as primary MAC address.",
 				Optional:            true,
 			},
 			"mtu": schema.Int64Attribute{
@@ -125,6 +130,9 @@ func (r *virtualMachineInterfaceResource) Create(ctx context.Context, req resour
 	if !plan.MacAddress.IsNull() && !plan.MacAddress.IsUnknown() {
 		payload["mac_address"] = plan.MacAddress.ValueString()
 	}
+	if !plan.PrimaryMacAddressId.IsNull() && !plan.PrimaryMacAddressId.IsUnknown() {
+		payload["primary_mac_address"] = plan.PrimaryMacAddressId.ValueInt64()
+	}
 	if !plan.Mtu.IsNull() && !plan.Mtu.IsUnknown() {
 		payload["mtu"] = plan.Mtu.ValueInt64()
 	}
@@ -159,6 +167,11 @@ func (r *virtualMachineInterfaceResource) Create(ctx context.Context, req resour
 
 	if enabled, ok := apiResponse["enabled"].(bool); ok {
 		plan.Enabled = types.BoolValue(enabled)
+	}
+	if pmaMap, ok := apiResponse["primary_mac_address"].(map[string]interface{}); ok {
+		if idFloat, ok := pmaMap["id"].(float64); ok {
+			plan.PrimaryMacAddressId = types.Int64Value(int64(idFloat))
+		}
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
@@ -203,6 +216,14 @@ func (r *virtualMachineInterfaceResource) Read(ctx context.Context, req resource
 		state.MacAddress = types.StringValue(macAddr)
 	}
 
+	if pmaMap, ok := apiResponse["primary_mac_address"].(map[string]interface{}); ok {
+		if idFloat, ok := pmaMap["id"].(float64); ok {
+			state.PrimaryMacAddressId = types.Int64Value(int64(idFloat))
+		}
+	} else if !state.PrimaryMacAddressId.IsNull() {
+		state.PrimaryMacAddressId = types.Int64Null()
+	}
+
 	if mtu, ok := apiResponse["mtu"].(float64); ok && !state.Mtu.IsNull() {
 		state.Mtu = types.Int64Value(int64(mtu))
 	}
@@ -231,6 +252,13 @@ func (r *virtualMachineInterfaceResource) Update(ctx context.Context, req resour
 	}
 	if !plan.MacAddress.Equal(state.MacAddress) {
 		payload["mac_address"] = plan.MacAddress.ValueString()
+	}
+	if !plan.PrimaryMacAddressId.Equal(state.PrimaryMacAddressId) {
+		if plan.PrimaryMacAddressId.IsNull() {
+			payload["primary_mac_address"] = nil
+		} else {
+			payload["primary_mac_address"] = plan.PrimaryMacAddressId.ValueInt64()
+		}
 	}
 	if !plan.Mtu.Equal(state.Mtu) {
 		if plan.Mtu.IsNull() {

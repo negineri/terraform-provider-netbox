@@ -27,11 +27,19 @@ resource "netbox_device" "test" {
   status         = "active"
 }
 
+resource "netbox_mac_address" "eth0_mac" {
+  mac_address = "AA:BB:CC:DD:EE:01"
+  lifecycle {
+    ignore_changes = [assigned_object_type, assigned_object_id]
+  }
+}
+
 resource "netbox_device_interface" "test" {
-  device_id   = netbox_device.test.id
-  name        = "eth0"
-  type        = "virtual"
-  description = "terraform test interface data source"
+  device_id              = netbox_device.test.id
+  name                   = "eth0"
+  type                   = "virtual"
+  primary_mac_address_id = netbox_mac_address.eth0_mac.id
+  description            = "terraform test interface data source"
 }
 
 data "netbox_device_interface" "test" {
@@ -41,6 +49,7 @@ data "netbox_device_interface" "test" {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.netbox_device_interface.test", "name", "eth0"),
 					resource.TestCheckResourceAttr("data.netbox_device_interface.test", "type", "virtual"),
+					resource.TestCheckResourceAttr("data.netbox_device_interface.test", "mac_address", "AA:BB:CC:DD:EE:01"),
 					resource.TestCheckResourceAttr("data.netbox_device_interface.test", "description", "terraform test interface data source"),
 					resource.TestCheckResourceAttrSet("data.netbox_device_interface.test", "device_id"),
 					resource.TestCheckResourceAttrSet("data.netbox_device_interface.test", "id"),
@@ -66,18 +75,34 @@ resource "netbox_device" "test" {
   status         = "active"
 }
 
+resource "netbox_mac_address" "eth0_mac" {
+  mac_address = "AA:BB:CC:DD:EE:10"
+  lifecycle {
+    ignore_changes = [assigned_object_type, assigned_object_id]
+  }
+}
+
+resource "netbox_mac_address" "eth1_mac" {
+  mac_address = "AA:BB:CC:DD:EE:11"
+  lifecycle {
+    ignore_changes = [assigned_object_type, assigned_object_id]
+  }
+}
+
 resource "netbox_device_interface" "eth0" {
-  device_id   = netbox_device.test.id
-  name        = "eth0"
-  type        = "virtual"
-  description = "terraform test interface list"
+  device_id              = netbox_device.test.id
+  name                   = "eth0"
+  type                   = "virtual"
+  primary_mac_address_id = netbox_mac_address.eth0_mac.id
+  description            = "terraform test interface list"
 }
 
 resource "netbox_device_interface" "eth1" {
-  device_id   = netbox_device.test.id
-  name        = "eth1"
-  type        = "virtual"
-  description = "terraform test interface list"
+  device_id              = netbox_device.test.id
+  name                   = "eth1"
+  type                   = "virtual"
+  primary_mac_address_id = netbox_mac_address.eth1_mac.id
+  description            = "terraform test interface list"
 }
 
 data "netbox_device_interfaces" "by_device" {
@@ -96,6 +121,7 @@ data "netbox_device_interfaces" "by_name" {
 					resource.TestCheckResourceAttrSet("data.netbox_device_interfaces.by_device", "device_interfaces.0.id"),
 					resource.TestCheckResourceAttr("data.netbox_device_interfaces.by_name", "device_interfaces.#", "1"),
 					resource.TestCheckResourceAttr("data.netbox_device_interfaces.by_name", "device_interfaces.0.name", "eth0"),
+					resource.TestCheckResourceAttr("data.netbox_device_interfaces.by_name", "device_interfaces.0.mac_address", "AA:BB:CC:DD:EE:10"),
 				),
 			},
 		},
