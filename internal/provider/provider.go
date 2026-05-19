@@ -278,6 +278,10 @@ func (p *netboxProvider) DataSources(_ context.Context) []func() datasource.Data
 		NewPlatformDataSource,
 		NewMacAddressesDataSource,
 		NewMacAddressDataSource,
+		NewDeviceInterfacesDataSource,
+		NewDeviceInterfaceDataSource,
+		NewVirtualMachineInterfacesDataSource,
+		NewVirtualMachineInterfaceDataSource,
 	}
 }
 
