@@ -35,6 +35,10 @@ type prefixesDataSourceModel struct {
 	SiteId             types.Int64   `tfsdk:"site_id"`
 	VrfId              types.Int64   `tfsdk:"vrf_id"`
 	Tag                types.String  `tfsdk:"tag"`
+	Prefix             types.String  `tfsdk:"prefix"`
+	Within             types.String  `tfsdk:"within"`
+	Contains           types.String  `tfsdk:"contains"`
+	Family             types.Int64   `tfsdk:"family"`
 }
 
 type prefixModel struct {
@@ -75,6 +79,22 @@ func (d *prefixesDataSource) Schema(_ context.Context, _ datasource.SchemaReques
 			},
 			"tag": schema.StringAttribute{
 				MarkdownDescription: "Filter by tag slug.",
+				Optional:            true,
+			},
+			"prefix": schema.StringAttribute{
+				MarkdownDescription: "Filter by exact prefix in CIDR notation (e.g. 10.0.0.0/8).",
+				Optional:            true,
+			},
+			"within": schema.StringAttribute{
+				MarkdownDescription: "Filter prefixes within a given prefix in CIDR notation (e.g. 10.0.0.0/8).",
+				Optional:            true,
+			},
+			"contains": schema.StringAttribute{
+				MarkdownDescription: "Filter prefixes that contain a given IP address or prefix in CIDR notation (e.g. 10.0.0.1/32).",
+				Optional:            true,
+			},
+			"family": schema.Int64Attribute{
+				MarkdownDescription: "Filter by address family (4 for IPv4, 6 for IPv6).",
 				Optional:            true,
 			},
 			"prefixes": schema.ListNestedAttribute{
@@ -137,6 +157,10 @@ func (d *prefixesDataSource) Read(ctx context.Context, req datasource.ReadReques
 	int64FilterParam(params, "site_id", state.SiteId)
 	int64FilterParam(params, "vrf_id", state.VrfId)
 	stringFilterParam(params, "tag", state.Tag)
+	stringFilterParam(params, "prefix", state.Prefix)
+	stringFilterParam(params, "within", state.Within)
+	stringFilterParam(params, "contains", state.Contains)
+	int64FilterParam(params, "family", state.Family)
 
 	apiPath := "api/ipam/prefixes/"
 	if q := combineQueryStrings(buildFilterQuery(params), buildCustomFieldFilterQuery(ctx, state.CustomFieldFilters)); q != "" {
@@ -150,10 +174,10 @@ func (d *prefixesDataSource) Read(ctx context.Context, req datasource.ReadReques
 	}
 
 	type ApiPrefix struct {
-		ID          int64                  `json:"id"`
-		Prefix      string                 `json:"prefix"`
-		Status      map[string]interface{} `json:"status"`
-		Description string                 `json:"description"`
+		ID          int64          `json:"id"`
+		Prefix      string         `json:"prefix"`
+		Status      map[string]any `json:"status"`
+		Description string         `json:"description"`
 	}
 
 	type ApiPrefixesResponse struct {

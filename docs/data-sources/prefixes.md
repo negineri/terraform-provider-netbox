@@ -32,11 +32,15 @@ output "prefix_count" {
 
 ### Optional
 
+- `contains` (String) Filter prefixes that contain a given IP address or prefix in CIDR notation (e.g. 10.0.0.1/32).
 - `custom_field_filters` (Map of String) Filter prefixes by custom field values. Keys are custom field names, values are the filter values.
+- `family` (Number) Filter by address family (4 for IPv4, 6 for IPv6).
+- `prefix` (String) Filter by exact prefix in CIDR notation (e.g. 10.0.0.0/8).
 - `site_id` (Number) Filter by site ID.
 - `status` (String) Filter by status (e.g. active, container, reserved, deprecated).
 - `tag` (String) Filter by tag slug.
 - `vrf_id` (Number) Filter by VRF ID.
+- `within` (String) Filter prefixes within a given prefix in CIDR notation (e.g. 10.0.0.0/8).
 
 ### Read-Only
 
