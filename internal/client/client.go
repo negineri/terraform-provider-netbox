@@ -15,13 +15,26 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+)
+
+// 死活監視のデフォルト値。テストでは短い値に差し替える。
+var (
+	// healthCheckInterval は死活監視で API を叩く間隔です。
+	healthCheckInterval = 30 * time.Second
+	// healthCheckTimeout は死活監視 1 回あたりのタイムアウトです。
+	// HTTPClient.Timeout は無効化されているため、ハングしたリクエストに巻き込まれないよう独自にタイムアウトを設定する。
+	healthCheckTimeout = 10 * time.Second
+	// healthCheckFailureThreshold はハングとみなして警告ログを出すまでの連続失敗回数です。
+	healthCheckFailureThreshold = 3
 )
 
 // NetboxClient はリトライ対応の HTTP クライアントです。
 type NetboxClient struct {
-	retryClient *retryablehttp.Client
-	baseURL     string
-	authHeader  string
+	retryClient       *retryablehttp.Client
+	baseURL           string
+	authHeader        string
+	healthCheckCancel context.CancelFunc
 }
 
 // NewNetboxClient は v2 トークン（keyV2 + tokenV2）を受け取り、認証付きのクライアントを生成します。
@@ -31,8 +44,9 @@ func NewNetboxClient(serverURL string, keyV2 string, tokenV2 string) *NetboxClie
 	rc.RetryWaitMin = 1 * time.Second
 	rc.RetryWaitMax = 60 * time.Second
 	rc.Logger = nil
-	// per-attempt タイムアウト。StandardClient を使わないためリトライ全体には影響しない。
-	rc.HTTPClient.Timeout = 30 * time.Second
+	// タイムアウトを無効化し、応答があるまで無限に待機する。
+	// NetBox のハングは死活監視による定期ポーリングで別途検知する。
+	rc.HTTPClient.Timeout = 0
 
 	// 429 と接続タイムアウトもリトライ対象にする
 	rc.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
@@ -81,7 +95,9 @@ func NewNetboxClientV1(serverURL string, token string) *NetboxClient {
 	rc.RetryWaitMin = 1 * time.Second
 	rc.RetryWaitMax = 60 * time.Second
 	rc.Logger = nil
-	rc.HTTPClient.Timeout = 30 * time.Second
+	// タイムアウトを無効化し、応答があるまで無限に待機する。
+	// NetBox のハングは死活監視による定期ポーリングで別途検知する。
+	rc.HTTPClient.Timeout = 0
 
 	rc.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
 		if err != nil {
@@ -118,6 +134,73 @@ func NewNetboxClientV1(serverURL string, token string) *NetboxClient {
 		retryClient: rc,
 		baseURL:     serverURL,
 		authHeader:  "Token " + token,
+	}
+}
+
+// StartHealthCheck は NetBox API に対する死活監視を開始します。
+// HTTPClient.Timeout を無効化しているため、API がハングして応答しなくなっても
+// 通常のリクエストはタイムアウトしません。本メソッドはそれとは独立に
+// 短いタイムアウトで定期的に api/status/ を叩き、連続して失敗した場合に
+// ハングの可能性をログへ出力します。
+//
+// ctx はログ出力先の設定を引き継ぐために使用しますが、ctx のキャンセルには
+// 影響されず、StopHealthCheck が呼ばれるまで監視を継続します。
+func (c *NetboxClient) StartHealthCheck(ctx context.Context) {
+	if c.healthCheckCancel != nil {
+		return
+	}
+
+	healthCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	c.healthCheckCancel = cancel
+
+	go c.healthCheckLoop(healthCtx)
+}
+
+// StopHealthCheck は StartHealthCheck で開始した死活監視を停止します。
+func (c *NetboxClient) StopHealthCheck() {
+	if c.healthCheckCancel == nil {
+		return
+	}
+	c.healthCheckCancel()
+	c.healthCheckCancel = nil
+}
+
+func (c *NetboxClient) healthCheckLoop(ctx context.Context) {
+	ticker := time.NewTicker(healthCheckInterval)
+	defer ticker.Stop()
+
+	consecutiveFailures := 0
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			checkCtx, cancel := context.WithTimeout(ctx, healthCheckTimeout)
+			_, err := c.Get(checkCtx, "api/status/")
+			cancel()
+
+			if err != nil {
+				consecutiveFailures++
+				if consecutiveFailures >= healthCheckFailureThreshold {
+					tflog.Error(ctx, "Netbox API health check failed repeatedly; the API may be hanging or unreachable", map[string]interface{}{
+						"consecutive_failures": consecutiveFailures,
+						"error":                err.Error(),
+					})
+				} else {
+					tflog.Warn(ctx, "Netbox API health check failed", map[string]interface{}{
+						"consecutive_failures": consecutiveFailures,
+						"error":                err.Error(),
+					})
+				}
+				continue
+			}
+
+			if consecutiveFailures >= healthCheckFailureThreshold {
+				tflog.Info(ctx, "Netbox API health check recovered")
+			}
+			consecutiveFailures = 0
+		}
 	}
 }
 

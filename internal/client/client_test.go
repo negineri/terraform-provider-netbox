@@ -9,7 +9,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -257,6 +259,73 @@ func TestDoRequest_RateLimitRetry(t *testing.T) {
 	}
 	if body == nil {
 		t.Fatal("expected non-nil body")
+	}
+}
+
+// withFastHealthCheck はテスト用に死活監視の間隔・タイムアウト・しきい値を短縮し、テスト終了時に元へ戻す。
+func withFastHealthCheck(t *testing.T) {
+	t.Helper()
+	origInterval, origTimeout, origThreshold := healthCheckInterval, healthCheckTimeout, healthCheckFailureThreshold
+	healthCheckInterval = 10 * time.Millisecond
+	healthCheckTimeout = 100 * time.Millisecond
+	healthCheckFailureThreshold = 2
+	t.Cleanup(func() {
+		healthCheckInterval, healthCheckTimeout, healthCheckFailureThreshold = origInterval, origTimeout, origThreshold
+	})
+}
+
+func TestHealthCheck_StartStop(t *testing.T) {
+	withFastHealthCheck(t)
+	healthCheckInterval = 50 * time.Millisecond
+
+	var requests atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
+	}))
+	defer srv.Close()
+
+	c := newTestClient(srv.URL)
+	c.StartHealthCheck(context.Background())
+
+	// 少なくとも1回のヘルスチェックが実行されるまで待つ。
+	for i := 0; i < 100 && requests.Load() < 1; i++ {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if requests.Load() < 1 {
+		t.Fatalf("expected at least 1 health check request, got %d", requests.Load())
+	}
+
+	c.StopHealthCheck()
+	// 停止直前に発火した分が完了するのを待つ。
+	time.Sleep(20 * time.Millisecond)
+	stopped := requests.Load()
+
+	// 停止後、次のティック（数回分）が経過してもリクエストが増えないことを確認する。
+	time.Sleep(4 * healthCheckInterval)
+	if requests.Load() != stopped {
+		t.Errorf("expected no further requests after stop, got %d -> %d", stopped, requests.Load())
+	}
+}
+
+func TestHealthCheck_StartIsIdempotent(t *testing.T) {
+	withFastHealthCheck(t)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
+	}))
+	defer srv.Close()
+
+	c := newTestClient(srv.URL)
+	c.StartHealthCheck(context.Background())
+	defer c.StopHealthCheck()
+
+	firstCancel := c.healthCheckCancel
+	c.StartHealthCheck(context.Background())
+	if reflect.ValueOf(firstCancel).Pointer() != reflect.ValueOf(c.healthCheckCancel).Pointer() {
+		t.Error("expected second StartHealthCheck call to be a no-op")
 	}
 }
 

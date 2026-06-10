@@ -233,6 +233,9 @@ func (p *netboxProvider) Configure(ctx context.Context, req provider.ConfigureRe
 		return
 	}
 
+	// API リクエストのタイムアウトは無効化されているため、ハングを別途検知できるよう死活監視を開始する。
+	netboxClient.StartHealthCheck(ctx)
+
 	// Make the Netbox client available during DataSource and Resource
 	// type Configure methods.
 	resp.DataSourceData = netboxClient
