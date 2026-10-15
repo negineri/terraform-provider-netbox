@@ -55,7 +55,7 @@ jobs:
   # Run acceptance tests in a matrix with Terraform CLI versions
   test:
     name: 'Acceptance Tests: Terraform ${{ matrix.terraform }} / NetBox ${{ matrix.netbox }}'
-    needs: build
+    # build (lint を含めて約 1 分) を待たずに始める。コンパイルできなければここでも落ちる
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: 
@@ -69,8 +69,8 @@ jobs:
         terraform:
           # - '1.13.*'
           - '1.14.*'
-        # NetBox versions. negineri/ansible-witenp の nbci01 (setup_netbox_ci) が
-        # https://netbox-ci-v4-7.witenp.com/ のようにマイナーバージョンごとに立てている
+        # NetBox versions. negineri/ansible-witenp の nbci-v4-* (setup_netbox_ci) が
+        # https://netbox-ci-v4-7.witenp.com/ のようにマイナーバージョンごとに 1 台ずつ立てている
         netbox:
           - '4.5'
           - '4.6'
@@ -94,5 +94,6 @@ jobs:
           TF_ACC: "1"
           NETBOX_TOKEN_V2: ${{ secrets.NETBOX_TOKEN_V2 }}
           NETBOX_KEY_V2: ${{ secrets.NETBOX_KEY_V2 }}
-        run: go test -v -cover ./internal/provider/
+        # runner は 4 vCPU なので既定の並列度は 4。テストは NetBox の応答待ちが大半なので広げる
+        run: go test -v -cover -parallel 16 ./internal/provider/
         timeout-minutes: 10
