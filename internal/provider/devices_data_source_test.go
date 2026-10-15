@@ -5,32 +5,56 @@ package provider
 
 import (
 	"fmt"
-	"strconv"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
+// TestAccDevicesDataSource は netbox_devices データソースの acceptance test です。
+// 実行前に NETBOX_SERVER_URL / NETBOX_KEY_V2 / NETBOX_TOKEN_V2 環境変数と、
+// NetBox 上に device_type_id=1, role_id=1, site_id=1 が存在している必要があります。
+// テスト用のタグを付けたデバイスを 2 台作り、そのタグで絞り込んで読みます。
 func TestAccDevicesDataSource(t *testing.T) {
+	rName := acctest.RandomWithPrefix("tf-acc-test-devices")
+
 	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Read testing
 			{
-				Config: providerConfig + `data "netbox_devices" "test" {}`,
+				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_tag" "test" {
+  name = %[1]q
+}
+resource "netbox_device" "a" {
+  name           = "%[1]s-a"
+  device_type_id = 1
+  role_id        = 1
+  site_id        = 1
+  tags           = [netbox_tag.test.id]
+}
+resource "netbox_device" "b" {
+  name           = "%[1]s-b"
+  device_type_id = 1
+  role_id        = 1
+  site_id        = 1
+  tags           = [netbox_tag.test.id]
+}
+data "netbox_devices" "test" {
+  tag        = netbox_tag.test.slug
+  depends_on = [netbox_device.a, netbox_device.b]
+}
+`, rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					// Verify number of devices returned is at least 12
-					resource.TestCheckResourceAttrWith("data.netbox_devices.test", "devices.#", func(value string) error {
-						if valueInt, err := strconv.Atoi(value); err != nil {
-							return err
-						} else if valueInt < 12 {
-							return fmt.Errorf("expected at least 12 devices, got %d", valueInt)
-						}
-						return nil
+					resource.TestCheckResourceAttr("data.netbox_devices.test", "devices.#", "2"),
+					resource.TestCheckTypeSetElemNestedAttrs("data.netbox_devices.test", "devices.*", map[string]string{
+						"name": rName + "-a",
 					}),
-					// Verify the first device to ensure all attributes are set
-					resource.TestCheckResourceAttr("data.netbox_devices.test", "devices.0.id", "141"),
-					resource.TestCheckResourceAttr("data.netbox_devices.test", "devices.0.name", "AUSYD01-SW-1"),
+					resource.TestCheckTypeSetElemNestedAttrs("data.netbox_devices.test", "devices.*", map[string]string{
+						"name": rName + "-b",
+					}),
+					resource.TestCheckResourceAttrSet("data.netbox_devices.test", "devices.0.id"),
 				),
 			},
 		},

@@ -205,7 +205,8 @@ resource "netbox_virtual_machine" "test_nocluster" {
 
 // TestAccVirtualMachineResourceWithTags は tags 属性の acceptance test です。
 // 実行前に NETBOX_SERVER_URL / NETBOX_KEY_V2 / NETBOX_TOKEN_V2 環境変数と、
-// NetBox 上に cluster_id=1, tag_id=37 が存在している必要があります。
+// NetBox 上に cluster_id=1 が存在している必要があります。
+// タグはテストの中で作ります。
 func TestAccVirtualMachineResourceWithTags(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-vm-tags")
 
@@ -215,30 +216,36 @@ func TestAccVirtualMachineResourceWithTags(t *testing.T) {
 			// Create with tags
 			{
 				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_tag" "test" {
+  name = %q
+}
 resource "netbox_virtual_machine" "test_tags" {
   name       = %q
   cluster_id = 1
   status     = "active"
-  tags       = [37]
+  tags       = [netbox_tag.test.id]
 }
-`, rName),
+`, rName+"-tag", rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_virtual_machine.test_tags", "name", rName),
 					resource.TestCheckResourceAttr("netbox_virtual_machine.test_tags", "tags.#", "1"),
-					resource.TestCheckTypeSetElemAttr("netbox_virtual_machine.test_tags", "tags.*", "37"),
+					resource.TestCheckTypeSetElemAttrPair("netbox_virtual_machine.test_tags", "tags.*", "netbox_tag.test", "id"),
 					resource.TestCheckResourceAttrSet("netbox_virtual_machine.test_tags", "id"),
 				),
 			},
 			// Update tags
 			{
 				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_tag" "test" {
+  name = %q
+}
 resource "netbox_virtual_machine" "test_tags" {
   name       = %q
   cluster_id = 1
   status     = "active"
   tags       = []
 }
-`, rName),
+`, rName+"-tag", rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_virtual_machine.test_tags", "name", rName),
 					resource.TestCheckResourceAttr("netbox_virtual_machine.test_tags", "tags.#", "0"),
