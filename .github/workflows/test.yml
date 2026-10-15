@@ -54,7 +54,7 @@ jobs:
 
   # Run acceptance tests in a matrix with Terraform CLI versions
   test:
-    name: 'Acceptance Tests: Terraform ${{ matrix.terraform }}'
+    name: 'Acceptance Tests: Terraform ${{ matrix.terraform }} / NetBox ${{ matrix.netbox }}'
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -62,12 +62,19 @@ jobs:
       name: dev
     strategy:
       fail-fast: false
-      max-parallel: 1
+      # NetBox はバージョンごとに別のサーバーなので、同じ Terraform のジョブ同士は並べてよい
+      max-parallel: 3
       matrix:
         # Terraform versions
         terraform:
           # - '1.13.*'
           - '1.14.*'
+        # NetBox versions. negineri/ansible-witenp の nbci01 (setup_netbox_ci) が
+        # https://netbox-ci-v4-7.witenp.com/ のようにマイナーバージョンごとに立てている
+        netbox:
+          - '4.5'
+          - '4.6'
+          - '4.7'
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
@@ -79,9 +86,12 @@ jobs:
           terraform_version: ${{ matrix.terraform }}
           terraform_wrapper: false
       - run: go mod download
+      - name: Select NetBox server
+        env:
+          NETBOX_VERSION: ${{ matrix.netbox }}
+        run: echo "NETBOX_SERVER_URL=https://netbox-ci-v${NETBOX_VERSION//./-}.witenp.com" >> "$GITHUB_ENV"
       - env:
           TF_ACC: "1"
-          NETBOX_SERVER_URL: ${{ secrets.NETBOX_SERVER_URL }}
           NETBOX_TOKEN_V2: ${{ secrets.NETBOX_TOKEN_V2 }}
           NETBOX_KEY_V2: ${{ secrets.NETBOX_KEY_V2 }}
         run: go test -v -cover ./internal/provider/

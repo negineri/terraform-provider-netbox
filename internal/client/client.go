@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -35,6 +36,8 @@ type NetboxClient struct {
 	baseURL           string
 	authHeader        string
 	healthCheckCancel context.CancelFunc
+	// inFlight は応答を待っているリクエストの数です。死活監視はこれが 0 の間は API を叩かない。
+	inFlight atomic.Int64
 }
 
 // NewNetboxClient は v2 トークン（keyV2 + tokenV2）を受け取り、認証付きのクライアントを生成します。
@@ -143,6 +146,11 @@ func NewNetboxClientV1(serverURL string, token string) *NetboxClient {
 // 短いタイムアウトで定期的に api/status/ を叩き、連続して失敗した場合に
 // ハングの可能性をログへ出力します。
 //
+// ハングを検知したいのは応答を待っている間だけなので、応答待ちのリクエストが無い間は
+// api/status/ を叩かない。プロバイダーには終了時に StopHealthCheck を呼ぶ機会が無く、
+// 受け入れテストではプロバイダーが同じプロセスの中で設定のたびに作られるため、
+// 常に叩いていると止まらない監視が溜まり、NetBox へのリクエストと接続が膨れ上がる。
+//
 // ctx はログ出力先の設定を引き継ぐために使用しますが、ctx のキャンセルには
 // 影響されず、StopHealthCheck が呼ばれるまで監視を継続します。
 func (c *NetboxClient) StartHealthCheck(ctx context.Context) {
@@ -176,6 +184,10 @@ func (c *NetboxClient) healthCheckLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			if c.inFlight.Load() == 0 {
+				consecutiveFailures = 0
+				continue
+			}
 			checkCtx, cancel := context.WithTimeout(ctx, healthCheckTimeout)
 			_, err := c.Get(checkCtx, "api/status/")
 			cancel()
@@ -231,7 +243,7 @@ func (c *NetboxClient) Get(ctx context.Context, path string) (*string, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.retryClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -257,12 +269,19 @@ func (c *NetboxClient) Delete(ctx context.Context, path string) error {
 	return err
 }
 
+// do はリクエストを送り、応答 (ヘッダー) が返るまでの間を応答待ちとして数える。
+func (c *NetboxClient) do(req *retryablehttp.Request) (*http.Response, error) {
+	c.inFlight.Add(1)
+	defer c.inFlight.Add(-1)
+	return c.retryClient.Do(req)
+}
+
 func (c *NetboxClient) doRequest(ctx context.Context, method, path string, body io.Reader) (*string, error) {
 	req, err := c.newRequest(ctx, method, path, body)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.retryClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}

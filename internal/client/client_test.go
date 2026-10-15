@@ -278,6 +278,49 @@ func TestHealthCheck_StartStop(t *testing.T) {
 	withFastHealthCheck(t)
 	healthCheckInterval = 50 * time.Millisecond
 
+	// api/slow/ は release が閉じられるまで応答しない (応答待ちのリクエストを作る)。
+	release := make(chan struct{})
+	var statusRequests atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/slow/" {
+			<-release
+		} else {
+			statusRequests.Add(1)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
+	}))
+	defer srv.Close()
+	defer close(release)
+
+	c := newTestClient(srv.URL)
+	c.StartHealthCheck(context.Background())
+	go func() { _, _ = c.Get(context.Background(), "api/slow/") }()
+
+	// 少なくとも1回のヘルスチェックが実行されるまで待つ。
+	for i := 0; i < 100 && statusRequests.Load() < 1; i++ {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if statusRequests.Load() < 1 {
+		t.Fatalf("expected at least 1 health check request, got %d", statusRequests.Load())
+	}
+
+	c.StopHealthCheck()
+	// 停止直前に発火した分が完了するのを待つ。
+	time.Sleep(20 * time.Millisecond)
+	stopped := statusRequests.Load()
+
+	// 停止後、次のティック（数回分）が経過してもリクエストが増えないことを確認する。
+	time.Sleep(4 * healthCheckInterval)
+	if statusRequests.Load() != stopped {
+		t.Errorf("expected no further requests after stop, got %d -> %d", stopped, statusRequests.Load())
+	}
+}
+
+// 応答待ちのリクエストが無い間は api/status/ を叩かないことを確認する。
+func TestHealthCheck_IdleDoesNotPoll(t *testing.T) {
+	withFastHealthCheck(t)
+
 	var requests atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests.Add(1)
@@ -288,24 +331,11 @@ func TestHealthCheck_StartStop(t *testing.T) {
 
 	c := newTestClient(srv.URL)
 	c.StartHealthCheck(context.Background())
+	defer c.StopHealthCheck()
 
-	// 少なくとも1回のヘルスチェックが実行されるまで待つ。
-	for i := 0; i < 100 && requests.Load() < 1; i++ {
-		time.Sleep(10 * time.Millisecond)
-	}
-	if requests.Load() < 1 {
-		t.Fatalf("expected at least 1 health check request, got %d", requests.Load())
-	}
-
-	c.StopHealthCheck()
-	// 停止直前に発火した分が完了するのを待つ。
-	time.Sleep(20 * time.Millisecond)
-	stopped := requests.Load()
-
-	// 停止後、次のティック（数回分）が経過してもリクエストが増えないことを確認する。
-	time.Sleep(4 * healthCheckInterval)
-	if requests.Load() != stopped {
-		t.Errorf("expected no further requests after stop, got %d -> %d", stopped, requests.Load())
+	time.Sleep(10 * healthCheckInterval)
+	if n := requests.Load(); n != 0 {
+		t.Errorf("expected no health check requests while idle, got %d", n)
 	}
 }
 

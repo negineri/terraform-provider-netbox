@@ -487,7 +487,8 @@ resource "netbox_device" "test" {
 
 // TestAccDeviceResourceWithTags は tags 属性の acceptance test です。
 // 実行前に NETBOX_SERVER_URL / NETBOX_KEY_V2 / NETBOX_TOKEN_V2 環境変数と、
-// NetBox 上に device_type_id=1, role_id=1, site_id=1, tag_id=37 が存在している必要があります。
+// NetBox 上に device_type_id=1, role_id=1, site_id=1 が存在している必要があります。
+// タグはテストの中で作ります。
 func TestAccDeviceResourceWithTags(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test-device-tags")
 
@@ -497,25 +498,31 @@ func TestAccDeviceResourceWithTags(t *testing.T) {
 			// Create with tags
 			{
 				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_tag" "test" {
+  name = %q
+}
 resource "netbox_device" "test" {
   name           = %q
   device_type_id = 1
   role_id        = 1
   site_id        = 1
   status         = "active"
-  tags           = [37]
+  tags           = [netbox_tag.test.id]
 }
-`, rName),
+`, rName+"-tag", rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_device.test", "name", rName),
 					resource.TestCheckResourceAttr("netbox_device.test", "tags.#", "1"),
-					resource.TestCheckTypeSetElemAttr("netbox_device.test", "tags.*", "37"),
+					resource.TestCheckTypeSetElemAttrPair("netbox_device.test", "tags.*", "netbox_tag.test", "id"),
 					resource.TestCheckResourceAttrSet("netbox_device.test", "id"),
 				),
 			},
 			// Update: タグを空にする
 			{
 				Config: providerConfig + fmt.Sprintf(`
+resource "netbox_tag" "test" {
+  name = %q
+}
 resource "netbox_device" "test" {
   name           = %q
   device_type_id = 1
@@ -524,7 +531,7 @@ resource "netbox_device" "test" {
   status         = "active"
   tags           = []
 }
-`, rName),
+`, rName+"-tag", rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("netbox_device.test", "tags.#", "0"),
 				),
