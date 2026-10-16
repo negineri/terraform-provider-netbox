@@ -70,7 +70,7 @@ resource "netbox_location" "test" {
 }
 
 data "netbox_locations" "all" {
-  depends_on = [netbox_location.test]
+  name = netbox_location.test.name
 }
 
 data "netbox_location" "test" {
@@ -79,7 +79,7 @@ data "netbox_location" "test" {
 `, rSiteName, rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("data.netbox_location.test", "id"),
-					resource.TestCheckResourceAttrSet("data.netbox_location.test", "name"),
+					resource.TestCheckResourceAttr("data.netbox_location.test", "name", rName),
 					resource.TestCheckResourceAttrSet("data.netbox_location.test", "slug"),
 				),
 			},

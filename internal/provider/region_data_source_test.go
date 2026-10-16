@@ -52,7 +52,7 @@ resource "netbox_region" "test" {
 }
 
 data "netbox_regions" "all" {
-  depends_on = [netbox_region.test]
+  name = netbox_region.test.name
 }
 
 data "netbox_region" "test" {
@@ -61,7 +61,7 @@ data "netbox_region" "test" {
 `, rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("data.netbox_region.test", "id"),
-					resource.TestCheckResourceAttrSet("data.netbox_region.test", "name"),
+					resource.TestCheckResourceAttr("data.netbox_region.test", "name", rName),
 					resource.TestCheckResourceAttrSet("data.netbox_region.test", "slug"),
 				),
 			},

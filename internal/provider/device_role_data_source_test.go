@@ -55,7 +55,7 @@ resource "netbox_device_role" "test" {
 }
 
 data "netbox_device_roles" "all" {
-  depends_on = [netbox_device_role.test]
+  name = netbox_device_role.test.name
 }
 
 data "netbox_device_role" "test" {
@@ -64,7 +64,7 @@ data "netbox_device_role" "test" {
 `, rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("data.netbox_device_role.test", "id"),
-					resource.TestCheckResourceAttrSet("data.netbox_device_role.test", "name"),
+					resource.TestCheckResourceAttr("data.netbox_device_role.test", "name", rName),
 					resource.TestCheckResourceAttrSet("data.netbox_device_role.test", "slug"),
 					resource.TestCheckResourceAttrSet("data.netbox_device_role.test", "color"),
 				),
