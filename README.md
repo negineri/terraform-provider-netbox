@@ -1,5 +1,7 @@
 # Terraform Provider for NetBox
 
+[![Tests](https://github.com/negineri/terraform-provider-netbox/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/negineri/terraform-provider-netbox/actions/workflows/test.yml?query=branch%3Amain)
+
 [NetBox](https://netboxlabs.com/) の Terraform Provider です。[Terraform Plugin Framework](https://github.com/hashicorp/terraform-plugin-framework) を使用して構築されています。
 
 ## 要件
