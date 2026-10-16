@@ -8,7 +8,7 @@
 
 - [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.0
 - [Go](https://golang.org/doc/install) >= 1.24
-- [NetBox](https://github.com/netbox-community/netbox) 4.5 / 4.6 / 4.7 (CI の Acceptance テストで確認しているバージョン。認証は 4.5 以降の v2 トークンを使います)
+- [NetBox](https://github.com/netbox-community/netbox) 4.5 / 4.6 / 4.7 (CI の Acceptance テストで確認しているバージョン)
 
 ## 使い方
 
