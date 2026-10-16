@@ -52,7 +52,7 @@ resource "netbox_platform" "test" {
 }
 
 data "netbox_platforms" "all" {
-  depends_on = [netbox_platform.test]
+  name = netbox_platform.test.name
 }
 
 data "netbox_platform" "test" {
@@ -61,7 +61,7 @@ data "netbox_platform" "test" {
 `, rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("data.netbox_platform.test", "id"),
-					resource.TestCheckResourceAttrSet("data.netbox_platform.test", "name"),
+					resource.TestCheckResourceAttr("data.netbox_platform.test", "name", rName),
 					resource.TestCheckResourceAttrSet("data.netbox_platform.test", "slug"),
 				),
 			},
