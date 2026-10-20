@@ -4,6 +4,14 @@
 package provider
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"testing"
+
+	"terraform-provider-netbox/internal/client"
+
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 )
@@ -28,3 +36,34 @@ var (
 		"netbox": providerserver.NewProtocol6WithError(New("test")()),
 	}
 )
+
+// testAccSkipIfNetboxOlderThan は接続先 NetBox が major.minor より古い場合にテストをスキップします。
+func testAccSkipIfNetboxOlderThan(t *testing.T, major, minor int) {
+	t.Helper()
+
+	var c *client.NetboxClient
+	if token := os.Getenv("NETBOX_TOKEN"); token != "" {
+		c = client.NewNetboxClientV1(os.Getenv("NETBOX_SERVER_URL"), token)
+	} else {
+		c = client.NewNetboxClient(os.Getenv("NETBOX_SERVER_URL"), os.Getenv("NETBOX_KEY_V2"), os.Getenv("NETBOX_TOKEN_V2"))
+	}
+
+	bodyStr, err := c.Get(context.Background(), "api/status/")
+	if err != nil {
+		t.Fatalf("failed to get NetBox status: %s", err)
+	}
+	var status struct {
+		NetboxVersion string `json:"netbox-version"`
+	}
+	if err := json.Unmarshal([]byte(*bodyStr), &status); err != nil {
+		t.Fatalf("failed to parse NetBox status: %s", err)
+	}
+
+	var gotMajor, gotMinor int
+	if _, err := fmt.Sscanf(status.NetboxVersion, "%d.%d", &gotMajor, &gotMinor); err != nil {
+		t.Fatalf("failed to parse NetBox version %q: %s", status.NetboxVersion, err)
+	}
+	if gotMajor < major || (gotMajor == major && gotMinor < minor) {
+		t.Skipf("requires NetBox %d.%d or later, got %s", major, minor, status.NetboxVersion)
+	}
+}

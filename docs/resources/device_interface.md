@@ -35,9 +35,9 @@ resource "netbox_device_interface" "example" {
 
 - `description` (String) Description for the interface.
 - `enabled` (Boolean) Whether the interface is enabled.
-- `mac_address` (String) The MAC address of the interface.
+- `mac_address` (String) The MAC address of the interface. NetBox creates a MAC address object and sets it as the primary MAC address (NetBox 4.7 or later; ignored by earlier versions). Conflicts with `primary_mac_address_id`.
 - `mtu` (Number) The MTU of the interface.
-- `primary_mac_address_id` (Number) The ID of the netbox_mac_address to set as primary MAC address.
+- `primary_mac_address_id` (Number) The ID of the netbox_mac_address to set as primary MAC address. Conflicts with `mac_address`.
 
 ### Read-Only
 

@@ -47,3 +47,23 @@ resource "netbox_mac_address" "test" {
 		},
 	})
 }
+
+// TestAccMacAddressResource_lowercase は小文字の MAC を指定しても差分が出ないことを確認します。
+func TestAccMacAddressResource_lowercase(t *testing.T) {
+	resource.ParallelTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + `
+resource "netbox_mac_address" "test" {
+  mac_address = "aa:bb:cc:dd:ee:fe"
+}
+`,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_mac_address.test", "mac_address", "aa:bb:cc:dd:ee:fe"),
+					resource.TestCheckResourceAttrSet("netbox_mac_address.test", "id"),
+				),
+			},
+		},
+	})
+}

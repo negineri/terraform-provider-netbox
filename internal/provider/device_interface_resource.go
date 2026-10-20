@@ -8,14 +8,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"terraform-provider-netbox/internal/client"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -82,11 +86,14 @@ func (r *deviceInterfaceResource) Schema(_ context.Context, _ resource.SchemaReq
 				},
 			},
 			"mac_address": schema.StringAttribute{
-				MarkdownDescription: "The MAC address of the interface.",
+				MarkdownDescription: "The MAC address of the interface. NetBox creates a MAC address object and sets it as the primary MAC address (NetBox 4.7 or later; ignored by earlier versions). Conflicts with `primary_mac_address_id`.",
 				Optional:            true,
+				Validators: []validator.String{
+					stringvalidator.ConflictsWith(path.MatchRoot("primary_mac_address_id")),
+				},
 			},
 			"primary_mac_address_id": schema.Int64Attribute{
-				MarkdownDescription: "The ID of the netbox_mac_address to set as primary MAC address.",
+				MarkdownDescription: "The ID of the netbox_mac_address to set as primary MAC address. Conflicts with `mac_address`.",
 				Optional:            true,
 			},
 			"mtu": schema.Int64Attribute{
@@ -178,11 +185,6 @@ func (r *deviceInterfaceResource) Create(ctx context.Context, req resource.Creat
 	if enabled, ok := apiResponse["enabled"].(bool); ok {
 		plan.Enabled = types.BoolValue(enabled)
 	}
-	if pmaMap, ok := apiResponse["primary_mac_address"].(map[string]interface{}); ok {
-		if idFloat, ok := pmaMap["id"].(float64); ok {
-			plan.PrimaryMacAddressId = types.Int64Value(int64(idFloat))
-		}
-	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -228,16 +230,22 @@ func (r *deviceInterfaceResource) Read(ctx context.Context, req resource.ReadReq
 		state.Enabled = types.BoolValue(enabled)
 	}
 
-	if macAddr, ok := apiResponse["mac_address"].(string); ok && !state.MacAddress.IsNull() {
+	// NetBox は MAC を大文字で返すため、大文字・小文字の違いだけなら設定値を保持する
+	if macAddr, ok := apiResponse["mac_address"].(string); ok && !state.MacAddress.IsNull() &&
+		!strings.EqualFold(macAddr, state.MacAddress.ValueString()) {
 		state.MacAddress = types.StringValue(macAddr)
 	}
 
-	if pmaMap, ok := apiResponse["primary_mac_address"].(map[string]interface{}); ok {
-		if idFloat, ok := pmaMap["id"].(float64); ok {
-			state.PrimaryMacAddressId = types.Int64Value(int64(idFloat))
+	// mac_address 指定時は NetBox が primary MAC を自動で作るため、
+	// primary_mac_address_id を管理している場合のみ API の値を反映する
+	if !state.PrimaryMacAddressId.IsNull() {
+		if pmaMap, ok := apiResponse["primary_mac_address"].(map[string]interface{}); ok {
+			if idFloat, ok := pmaMap["id"].(float64); ok {
+				state.PrimaryMacAddressId = types.Int64Value(int64(idFloat))
+			}
+		} else {
+			state.PrimaryMacAddressId = types.Int64Null()
 		}
-	} else if !state.PrimaryMacAddressId.IsNull() {
-		state.PrimaryMacAddressId = types.Int64Null()
 	}
 
 	if mtu, ok := apiResponse["mtu"].(float64); ok && !state.Mtu.IsNull() {
@@ -270,7 +278,11 @@ func (r *deviceInterfaceResource) Update(ctx context.Context, req resource.Updat
 		payload["enabled"] = plan.Enabled.ValueBool()
 	}
 	if !plan.MacAddress.Equal(state.MacAddress) {
-		payload["mac_address"] = plan.MacAddress.ValueString()
+		if plan.MacAddress.IsNull() {
+			payload["mac_address"] = nil
+		} else {
+			payload["mac_address"] = plan.MacAddress.ValueString()
+		}
 	}
 	if !plan.PrimaryMacAddressId.Equal(state.PrimaryMacAddressId) {
 		if plan.PrimaryMacAddressId.IsNull() {
