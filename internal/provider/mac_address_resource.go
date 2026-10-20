@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"terraform-provider-netbox/internal/client"
 
@@ -131,7 +132,8 @@ func (r *macAddressResource) Create(ctx context.Context, req resource.CreateRequ
 	}
 	plan.Id = types.Int64Value(int64(idFloat))
 
-	if macAddr, ok := apiResponse["mac_address"].(string); ok {
+	// NetBox は MAC を大文字で返すため、大文字・小文字の違いだけなら設定値を保持する
+	if macAddr, ok := apiResponse["mac_address"].(string); ok && !strings.EqualFold(macAddr, plan.MacAddress.ValueString()) {
 		plan.MacAddress = types.StringValue(macAddr)
 	}
 
@@ -159,7 +161,7 @@ func (r *macAddressResource) Read(ctx context.Context, req resource.ReadRequest,
 		return
 	}
 
-	if macAddr, ok := apiResponse["mac_address"].(string); ok {
+	if macAddr, ok := apiResponse["mac_address"].(string); ok && !strings.EqualFold(macAddr, state.MacAddress.ValueString()) {
 		state.MacAddress = types.StringValue(macAddr)
 	}
 	if desc, ok := apiResponse["description"].(string); ok && !state.Description.IsNull() {

@@ -5,6 +5,7 @@ package provider
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
@@ -71,6 +72,66 @@ resource "netbox_virtual_machine_interface" "test" {
 				),
 			},
 			// Delete testing automatically occurs in TestCase
+		},
+	})
+}
+
+// TestAccVirtualMachineInterfaceResource_macAddress は mac_address で primary MAC を作る場合の acceptance test です。
+// mac_address の書き込みは NetBox 4.7 以降でのみ有効です。
+func TestAccVirtualMachineInterfaceResource_macAddress(t *testing.T) {
+	rName := acctest.RandomWithPrefix("tf-acc-test-vm-iface-mac")
+
+	config := func(iface string) string {
+		return providerConfig + fmt.Sprintf(`
+resource "netbox_virtual_machine" "test" {
+  name       = %q
+  cluster_id = 1
+  status     = "active"
+}
+
+resource "netbox_virtual_machine_interface" "test" {
+  virtual_machine_id = netbox_virtual_machine.test.id
+  name               = "eth0"
+%s
+}
+`, rName, iface)
+	}
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:                 func() { testAccSkipIfNetboxOlderThan(t, 4, 7) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// mac_address と primary_mac_address_id は同時に指定できないこと
+			{
+				Config: config(`  mac_address            = "BC:24:11:34:E1:75"
+  primary_mac_address_id = 1`),
+				PlanOnly:    true,
+				ExpectError: regexp.MustCompile(`Invalid Attribute Combination`),
+			},
+			// 小文字の MAC で作成しても apply 後と次の plan で差分が出ないこと
+			{
+				Config: config(`  mac_address = "bc:24:11:34:e1:73"`),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_virtual_machine_interface.test", "mac_address", "bc:24:11:34:e1:73"),
+					resource.TestCheckNoResourceAttr("netbox_virtual_machine_interface.test", "primary_mac_address_id"),
+				),
+			},
+			// MAC の変更
+			{
+				Config: config(`  mac_address = "BC:24:11:34:E1:74"`),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("netbox_virtual_machine_interface.test", "mac_address", "BC:24:11:34:E1:74"),
+					resource.TestCheckNoResourceAttr("netbox_virtual_machine_interface.test", "primary_mac_address_id"),
+				),
+			},
+			// MAC の削除
+			{
+				Config: config(""),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckNoResourceAttr("netbox_virtual_machine_interface.test", "mac_address"),
+					resource.TestCheckNoResourceAttr("netbox_virtual_machine_interface.test", "primary_mac_address_id"),
+				),
+			},
 		},
 	})
 }
