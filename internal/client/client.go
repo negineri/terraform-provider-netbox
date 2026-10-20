@@ -30,6 +30,9 @@ var (
 	healthCheckFailureThreshold = 3
 )
 
+// ErrNotFound は API が 404 を返したことを表します。errors.Is で判定してください。
+var ErrNotFound = errors.New("not found")
+
 // NetboxClient はリトライ対応の HTTP クライアントです。
 type NetboxClient struct {
 	retryClient       *retryablehttp.Client
@@ -239,21 +242,7 @@ func (c *NetboxClient) newRequest(ctx context.Context, method, path string, body
 }
 
 func (c *NetboxClient) Get(ctx context.Context, path string) (*string, error) {
-	req, err := c.newRequest(ctx, http.MethodGet, path, nil)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := c.do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-	bodyString := string(bodyBytes)
-	return &bodyString, nil
+	return c.doRequest(ctx, http.MethodGet, path, nil)
 }
 
 func (c *NetboxClient) Post(ctx context.Context, path string, body io.Reader) (*string, error) {
@@ -292,6 +281,9 @@ func (c *NetboxClient) doRequest(ctx context.Context, method, path string, body 
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("%w: API request failed with status code %d: %s", ErrNotFound, resp.StatusCode, string(bodyBytes))
+	}
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, string(bodyBytes))
 	}

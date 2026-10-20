@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -193,8 +194,12 @@ func (r *virtualMachineInterfaceResource) Read(ctx context.Context, req resource
 	path := fmt.Sprintf("api/virtualization/interfaces/%d/", state.Id.ValueInt64())
 	bodyStr, err := r.client.Get(ctx, path)
 	if err != nil {
-		tflog.Warn(ctx, "Could not read virtual machine interface, assuming it was deleted", map[string]interface{}{"error": err.Error()})
-		resp.State.RemoveResource(ctx)
+		if errors.Is(err, client.ErrNotFound) {
+			tflog.Warn(ctx, "Virtual machine interface not found, removing from state", map[string]interface{}{"error": err.Error()})
+			resp.State.RemoveResource(ctx)
+			return
+		}
+		resp.Diagnostics.AddError("Error reading virtual machine interface", err.Error())
 		return
 	}
 

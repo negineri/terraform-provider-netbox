@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"terraform-provider-netbox/internal/client"
@@ -233,8 +234,12 @@ func (r *virtualMachineResource) Read(ctx context.Context, req resource.ReadRequ
 	path := fmt.Sprintf("api/virtualization/virtual-machines/%d/", state.Id.ValueInt64())
 	bodyStr, err := r.client.Get(ctx, path)
 	if err != nil {
-		tflog.Warn(ctx, "Could not read virtual machine, assuming it was deleted", map[string]interface{}{"error": err.Error()})
-		resp.State.RemoveResource(ctx)
+		if errors.Is(err, client.ErrNotFound) {
+			tflog.Warn(ctx, "Virtual machine not found, removing from state", map[string]interface{}{"error": err.Error()})
+			resp.State.RemoveResource(ctx)
+			return
+		}
+		resp.Diagnostics.AddError("Error reading virtual machine", err.Error())
 		return
 	}
 

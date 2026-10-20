@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"terraform-provider-netbox/internal/client"
@@ -197,8 +198,12 @@ func (r *ipAddressResource) Read(ctx context.Context, req resource.ReadRequest, 
 	path := fmt.Sprintf("api/ipam/ip-addresses/%d/", state.Id.ValueInt64())
 	bodyStr, err := r.client.Get(ctx, path)
 	if err != nil {
-		tflog.Warn(ctx, "Could not read IP address, assuming it was deleted", map[string]interface{}{"error": err.Error()})
-		resp.State.RemoveResource(ctx)
+		if errors.Is(err, client.ErrNotFound) {
+			tflog.Warn(ctx, "IP address not found, removing from state", map[string]interface{}{"error": err.Error()})
+			resp.State.RemoveResource(ctx)
+			return
+		}
+		resp.Diagnostics.AddError("Error reading IP address", err.Error())
 		return
 	}
 

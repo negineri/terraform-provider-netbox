@@ -4,11 +4,13 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
@@ -103,6 +105,44 @@ resource "netbox_tag" "test" {
 				),
 			},
 			// Delete testing automatically occurs in TestCase
+		},
+	})
+}
+
+// TestAccTagResource_deletedOutsideTerraform は Terraform の外で削除された tag が
+// state から外れ、次の plan で作り直しになることを確認します。
+func TestAccTagResource_deletedOutsideTerraform(t *testing.T) {
+	var capturedID string
+	rName := acctest.RandomWithPrefix("tf-acc-test-tag-deleted")
+	config := providerConfig + fmt.Sprintf(`
+resource "netbox_tag" "test" {
+  name = %q
+}
+`, rName)
+
+	resource.ParallelTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: func(s *terraform.State) error {
+					capturedID = s.RootModule().Resources["netbox_tag.test"].Primary.ID
+					return nil
+				},
+			},
+			{
+				PreConfig: func() {
+					if err := testAccClient().Delete(context.Background(), fmt.Sprintf("api/extras/tags/%s/", capturedID)); err != nil {
+						t.Fatalf("failed to delete tag outside Terraform: %s", err)
+					}
+				},
+				Config: config,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("netbox_tag.test", plancheck.ResourceActionCreate),
+					},
+				},
+			},
 		},
 	})
 }

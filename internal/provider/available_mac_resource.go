@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -270,8 +271,12 @@ func (r *availableMacResource) Read(ctx context.Context, req resource.ReadReques
 	path := fmt.Sprintf("api/dcim/mac-addresses/%d/", state.Id.ValueInt64())
 	bodyStr, err := r.client.Get(ctx, path)
 	if err != nil {
-		tflog.Warn(ctx, "Could not read MAC address, assuming it was deleted", map[string]interface{}{"error": err.Error()})
-		resp.State.RemoveResource(ctx)
+		if errors.Is(err, client.ErrNotFound) {
+			tflog.Warn(ctx, "MAC address not found, removing from state", map[string]interface{}{"error": err.Error()})
+			resp.State.RemoveResource(ctx)
+			return
+		}
+		resp.Diagnostics.AddError("Error reading MAC address", err.Error())
 		return
 	}
 
