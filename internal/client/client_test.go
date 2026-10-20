@@ -6,6 +6,7 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -198,6 +199,40 @@ func TestDoRequest_HTTPErrorStatus(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "404") {
 		t.Errorf("expected error to contain status code 404, got: %v", err)
+	}
+}
+
+// TestGet_HTTPErrorStatus は Get も 400 以上をエラーにし、404 だけを ErrNotFound として返すことを確認します。
+func TestGet_HTTPErrorStatus(t *testing.T) {
+	tests := []struct {
+		status       int
+		wantNotFound bool
+	}{
+		{http.StatusNotFound, true},
+		{http.StatusUnauthorized, false},
+		{http.StatusForbidden, false},
+		{http.StatusInternalServerError, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(http.StatusText(tt.status), func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tt.status)
+				_, _ = w.Write([]byte(`{"detail":"error"}`))
+			}))
+			defer srv.Close()
+
+			c := newTestClient(srv.URL)
+			// 5xx の再試行で待たないようにする
+			c.retryClient.RetryMax = 0
+			body, err := c.Get(context.Background(), "api/ipam/prefixes/1/")
+			if err == nil {
+				t.Fatalf("expected error for %d response, got body %v", tt.status, body)
+			}
+			if got := errors.Is(err, ErrNotFound); got != tt.wantNotFound {
+				t.Errorf("errors.Is(err, ErrNotFound) = %v, want %v (err: %v)", got, tt.wantNotFound, err)
+			}
+		})
 	}
 }
 

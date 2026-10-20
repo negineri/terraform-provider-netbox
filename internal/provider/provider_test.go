@@ -37,18 +37,19 @@ var (
 	}
 )
 
+// testAccClient は環境変数から acceptance test 用の client を作ります。
+func testAccClient() *client.NetboxClient {
+	if token := os.Getenv("NETBOX_TOKEN"); token != "" {
+		return client.NewNetboxClientV1(os.Getenv("NETBOX_SERVER_URL"), token)
+	}
+	return client.NewNetboxClient(os.Getenv("NETBOX_SERVER_URL"), os.Getenv("NETBOX_KEY_V2"), os.Getenv("NETBOX_TOKEN_V2"))
+}
+
 // testAccSkipIfNetboxOlderThan は接続先 NetBox が major.minor より古い場合にテストをスキップします。
 func testAccSkipIfNetboxOlderThan(t *testing.T, major, minor int) {
 	t.Helper()
 
-	var c *client.NetboxClient
-	if token := os.Getenv("NETBOX_TOKEN"); token != "" {
-		c = client.NewNetboxClientV1(os.Getenv("NETBOX_SERVER_URL"), token)
-	} else {
-		c = client.NewNetboxClient(os.Getenv("NETBOX_SERVER_URL"), os.Getenv("NETBOX_KEY_V2"), os.Getenv("NETBOX_TOKEN_V2"))
-	}
-
-	bodyStr, err := c.Get(context.Background(), "api/status/")
+	bodyStr, err := testAccClient().Get(context.Background(), "api/status/")
 	if err != nil {
 		t.Fatalf("failed to get NetBox status: %s", err)
 	}

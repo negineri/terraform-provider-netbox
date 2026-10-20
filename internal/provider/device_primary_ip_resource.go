@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"terraform-provider-netbox/internal/client"
@@ -125,8 +126,12 @@ func (r *devicePrimaryIPResource) Read(ctx context.Context, req resource.ReadReq
 	path := fmt.Sprintf("api/dcim/devices/%d/", state.DeviceId.ValueInt64())
 	bodyStr, err := r.client.Get(ctx, path)
 	if err != nil {
-		tflog.Warn(ctx, "Could not read device, assuming it was deleted", map[string]interface{}{"error": err.Error()})
-		resp.State.RemoveResource(ctx)
+		if errors.Is(err, client.ErrNotFound) {
+			tflog.Warn(ctx, "Device not found, removing from state", map[string]interface{}{"error": err.Error()})
+			resp.State.RemoveResource(ctx)
+			return
+		}
+		resp.Diagnostics.AddError("Error reading device", err.Error())
 		return
 	}
 

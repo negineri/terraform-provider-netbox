@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -242,11 +243,15 @@ func (r *ipAddressRangeResource) Read(ctx context.Context, req resource.ReadRequ
 		apiPath := fmt.Sprintf("api/ipam/ip-addresses/%d/", m.Id.ValueInt64())
 		bodyStr, err := r.client.Get(ctx, apiPath)
 		if err != nil {
-			tflog.Warn(ctx, "IP address not found, removing range from state", map[string]any{
-				"id":    m.Id.ValueInt64(),
-				"error": err.Error(),
-			})
-			resp.State.RemoveResource(ctx)
+			if errors.Is(err, client.ErrNotFound) {
+				tflog.Warn(ctx, "IP address not found, removing range from state", map[string]any{
+					"id":    m.Id.ValueInt64(),
+					"error": err.Error(),
+				})
+				resp.State.RemoveResource(ctx)
+				return
+			}
+			resp.Diagnostics.AddError("Error reading IP address", err.Error())
 			return
 		}
 
