@@ -100,13 +100,9 @@ func (d *prefixDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 		return
 	}
 
-	// prefix のない応答を成功として扱うと、空の属性が黙って state に入るためエラーにする
-	prefix, ok := apiResponse["prefix"].(string)
-	if !ok {
-		resp.Diagnostics.AddError("Unexpected API Response", fmt.Sprintf("Response for prefix %d has no 'prefix' field: %s", state.Id.ValueInt64(), *bodyStr))
-		return
+	if prefix, ok := apiResponse["prefix"].(string); ok {
+		state.Prefix = types.StringValue(prefix)
 	}
-	state.Prefix = types.StringValue(prefix)
 	if statusMap, ok := apiResponse["status"].(map[string]any); ok {
 		if val, ok := statusMap["value"].(string); ok {
 			state.Status = types.StringValue(val)
